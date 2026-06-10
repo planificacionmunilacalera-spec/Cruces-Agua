@@ -741,7 +741,7 @@
 // ═══════════════════════════════════════════════════════════════
 const SB_URL    = 'https://jeprjnywwsvyxwvmgoqp.supabase.co';
 const SB_KEY    = 'sb_publishable_FESapZtqYV2OtdO7de5HEg_U7E9dsEn';
-const SB_BUCKET = 'archivos';
+const SB_BUCKET = 'Archivos';
 const ADMIN_PASS = 'Calera2026';
 
 let adminPGMFile  = null;
@@ -1440,23 +1440,28 @@ function renderDashboardLect() {
   const total    = lectData.length;
   const conObs   = lectData.filter(r=>r.observacion).length;
   const sinObs   = total - conObs;
-  const hojas    = new Set(lectData.map(r=>r.hoja)).size;
-  const conFecha = lectData.filter(r=>r.fecha).length;
+  // Usar barrio real (col 0) en vez del nombre de hoja — funciona para ambos formatos
+  const barriosUnicos = [...new Set(lectData.map(r=>r.barrio).filter(Boolean))];
+  const nBarrios  = barriosUnicos.length;
+  const conFecha  = lectData.filter(r=>r.fecha).length;
 
   document.getElementById('lect-subtitulo').textContent =
-    `${fmt(total)} lecturas · ${hojas} zonas/barrios`;
+    `${fmt(total)} lecturas · ${nBarrios} barrios`;
 
   document.getElementById('kpi-lect').innerHTML = `
     <div class="kpi"><div class="label">Total lecturas</div><div class="value">${fmt(total)}</div><div class="sub">cuentas con medidor</div></div>
-    <div class="kpi azul"><div class="label">Zonas/barrios</div><div class="value">${fmt(hojas)}</div><div class="sub">hojas en el archivo</div></div>
+    <div class="kpi azul"><div class="label">Barrios</div><div class="value">${fmt(nBarrios)}</div><div class="sub">barrios en el archivo</div></div>
     <div class="kpi verde"><div class="label">Sin observación</div><div class="value">${fmt(sinObs)}</div><div class="sub">lecturas normales</div></div>
     <div class="kpi naranja"><div class="label">Con observación</div><div class="value">${fmt(conObs)}</div><div class="sub">empañado, no encontrado, etc.</div></div>
     <div class="kpi gris"><div class="label">Con fecha</div><div class="value">${fmt(conFecha)}</div><div class="sub">fecha de lectura registrada</div></div>
   `;
 
-  // Por barrio
+  // Por barrio real
   const porBarrio = {};
-  lectData.forEach(r => { porBarrio[r.hoja]=(porBarrio[r.hoja]||0)+1; });
+  lectData.forEach(r => {
+    const b = r.barrio || r.hoja || 'SIN BARRIO';
+    porBarrio[b] = (porBarrio[b]||0)+1;
+  });
   const barr = Object.entries(porBarrio).sort((a,b)=>b[1]-a[1]);
   mkChart('chart-lect-barrios','bar',{
     labels: barr.map(x=>x[0]),
@@ -1475,9 +1480,9 @@ function renderDashboardLect() {
     datasets:[{ data:obs.map(x=>x[1]), backgroundColor:obs.map((_,i)=>col(i+3)), borderWidth:2, borderColor:'#fff' }]
   });
 
-  // Select barrios lecturas
+  // Select barrios — usar barrio real
   const hojasSel = document.getElementById('fil-lect-barrio');
-  const hojasUnicas = [...new Set(lectData.map(r=>r.hoja))].sort();
+  const hojasUnicas = [...new Set(lectData.map(r=>r.barrio||r.hoja).filter(Boolean))].sort();
   hojasSel.innerHTML = '<option value="">Todos</option>' + hojasUnicas.map(h=>`<option value="${h}">${h}</option>`).join('');
 
   // Select observaciones
@@ -1495,7 +1500,7 @@ function filtrarLect() {
   const obs    = document.getElementById('fil-lect-obs').value;
   const buscar = document.getElementById('fil-lect-buscar').value.toLowerCase().trim();
   lectFiltrado = lectData.filter(r => {
-    if (barrio && r.hoja !== barrio) return false;
+    if (barrio && (r.barrio||r.hoja) !== barrio) return false;
     if (obs && r.observacion !== obs) return false;
     if (buscar && !(r.cuentaRaw+' '+r.medidor).toLowerCase().includes(buscar)) return false;
     return true;
@@ -1512,7 +1517,7 @@ function renderTablaLect() {
   const pag = lectFiltrado.slice((pagLect-1)*POR_PAG, pagLect*POR_PAG);
   document.getElementById('tbody-lect').innerHTML = pag.length
     ? pag.map(r=>`<tr>
-        <td>${r.cuentaRaw}</td><td>${r.medidor||'—'}</td><td>${r.hoja}</td>
+        <td>${r.cuentaRaw}</td><td>${r.medidor||'—'}</td><td>${r.barrio||r.hoja}</td>
         <td>${r.direccion||'—'}</td><td class="r">${r.lectura||'—'}</td>
         <td>${r.fecha||'—'}</td>
         <td>${r.observacion?`<span class="badge naranja">${r.observacion}</span>`:'—'}</td>
@@ -1524,7 +1529,7 @@ function setPagLect(p){ pagLect=p; renderTablaLect(); }
 
 function exportarLect() {
   const datos = lectFiltrado.map(r=>({
-    'N° Cuenta':r.cuentaRaw,'N° Medidor':r.medidor,'Barrio/Zona':r.hoja,
+    'N° Cuenta':r.cuentaRaw,'N° Medidor':r.medidor,'Barrio/Zona':r.barrio||r.hoja,
     'Dirección':r.direccion,'Lectura':r.lectura,'Fecha':r.fecha,'Observación':r.observacion,
   }));
   exportXLSX(datos,'lecturas_filtrado.xlsx','Lecturas');
