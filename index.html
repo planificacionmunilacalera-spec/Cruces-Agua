@@ -282,6 +282,47 @@
     .alerta.verde { background: var(--verde-bg); color: var(--verde); border: 1px solid #a5d6a7; }
 
     canvas { max-height: 280px; }
+
+    /* ── PANTALLA SELECTOR ── */
+    .sel-box {
+      background: white; border-radius: 14px; padding: 36px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07); max-width: 680px; margin: 0 auto;
+    }
+    .sel-box h2 { font-size: 1.05rem; color: #1565c0; margin-bottom: 6px; }
+    .sel-box > p { font-size: 0.85rem; color: #607d8b; margin-bottom: 28px; }
+
+    .opcion-card {
+      display: flex; align-items: center; gap: 16px;
+      border: 2px solid #e0e7ef; border-radius: 12px; padding: 18px 20px;
+      cursor: pointer; transition: all 0.18s; margin-bottom: 12px; position: relative;
+      background: #fafbfc;
+    }
+    .opcion-card:hover { border-color: #90caf9; background: #f0f7ff; }
+    .opcion-card.elegido { border-color: #1565c0; background: #e8f0fe; }
+    .opcion-card .oc-icon { font-size: 2rem; flex-shrink: 0; }
+    .opcion-card .oc-body { flex: 1; }
+    .opcion-card .oc-titulo { font-size: 0.88rem; font-weight: 700; color: #37474f; margin-bottom: 3px; }
+    .opcion-card .oc-nombre { font-size: 0.83rem; color: #546e7a; }
+    .opcion-card .oc-fecha  { font-size: 0.75rem; color: #90a4ae; margin-top: 2px; }
+    .opcion-card .oc-check  {
+      width: 24px; height: 24px; border-radius: 50%; background: #1565c0; color: white;
+      display: none; align-items: center; justify-content: center; font-size: 0.8rem;
+      font-weight: 700; flex-shrink: 0;
+    }
+    .opcion-card.elegido .oc-check { display: flex; }
+    .opcion-card .oc-tag {
+      position: absolute; top: -10px; left: 16px;
+      background: #1565c0; color: white; font-size: 0.65rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 999px; letter-spacing: 0.5px;
+    }
+    .sel-sep {
+      text-align: center; font-size: 0.78rem; color: #b0bec5;
+      margin: 8px 0 16px; position: relative;
+    }
+    .sel-sep::before, .sel-sep::after {
+      content:''; position:absolute; top:50%; width:42%; height:1px; background:#e0e7ef;
+    }
+    .sel-sep::before { left:0; } .sel-sep::after { right:0; }
   </style>
 </head>
 <body>
@@ -376,23 +417,42 @@
 <main id="main-wrap" style="display:none">
 
   <!-- ══════════════════════════════════════════════════════ -->
-  <!-- PASO 1 — CARGA PGM                                     -->
+  <!-- PASO 1 — SELECTOR PGM                                  -->
   <!-- ══════════════════════════════════════════════════════ -->
-  <div class="pantalla activa" id="pantalla-carga-pgm">
-    <div class="carga-box">
+  <div class="pantalla activa" id="pantalla-sel-pgm">
+    <div class="sel-box">
       <h2>Paso 1 — Padrón PGM</h2>
-      <p>Cargá el archivo de cuentas activas del sistema PGM. Formato Excel (.xlsx) o CSV.</p>
-      <div class="drop-zone" id="zone-pgm">
-        <input type="file" id="file-pgm" accept=".xlsx,.xls,.csv" />
-        <div class="drop-icon">📋</div>
-        <h3>Padrón PGM — Cuentas activas</h3>
-        <p>Arrastrá el archivo aquí o hacé clic para seleccionarlo</p>
-        <div class="drop-estado" id="estado-pgm"></div>
+      <p>Elegí si querés usar el archivo guardado en la nube o subir uno desde tu computadora.</p>
+
+      <!-- Opción nube (visible solo si hay archivo guardado) -->
+      <div id="opcion-nube-pgm" style="display:none">
+        <div class="opcion-card" id="card-nube-pgm" onclick="elegirNubePGM()">
+          <div class="oc-tag">GUARDADO EN LA NUBE</div>
+          <div class="oc-icon">☁️</div>
+          <div class="oc-body">
+            <div class="oc-titulo">Usar archivo de la nube</div>
+            <div class="oc-nombre" id="nube-pgm-nombre"></div>
+            <div class="oc-fecha" id="nube-pgm-fecha"></div>
+          </div>
+          <div class="oc-check">✓</div>
+        </div>
+        <div class="sel-sep">— o subí un archivo diferente —</div>
       </div>
+
+      <!-- Opción subir local (siempre visible) -->
+      <div class="opcion-card" id="card-upload-pgm" onclick="clickUploadPGM()">
+        <div class="oc-icon">📋</div>
+        <div class="oc-body">
+          <div class="oc-titulo">Subir archivo desde la computadora</div>
+          <div class="oc-nombre" id="upload-pgm-nombre">Hacé clic para seleccionar un archivo Excel o CSV</div>
+        </div>
+        <div class="oc-check">✓</div>
+      </div>
+      <input type="file" id="file-pgm" accept=".xlsx,.xls,.csv" style="display:none" onchange="seleccionarArchivoPGM(this)" />
+
       <button class="btn-primario" id="btn-analizar-pgm" disabled onclick="analizarPGM()">
         Analizar padrón PGM →
       </button>
-      <div id="msg-error"></div>
       <div id="spinner-pgm" style="display:none" class="spinner-wrap">
         <div class="sp"></div><div class="sp-txt">Procesando archivo...</div>
       </div>
@@ -524,23 +584,45 @@
   </div><!-- /dashboard-pgm -->
 
   <!-- ══════════════════════════════════════════════════════ -->
-  <!-- PASO 2 — CARGA LECTURAS                               -->
+  <!-- PASO 2 — SELECTOR LECTURAS                            -->
   <!-- ══════════════════════════════════════════════════════ -->
-  <div class="pantalla" id="pantalla-carga-lect">
-    <div class="carga-box">
+  <div class="pantalla" id="pantalla-sel-lect">
+    <div class="sel-box">
       <h2>Paso 2 — Archivo de Lecturas</h2>
-      <p>Cargá el archivo de lecturas de medidores (multi-hoja por barrio). Formato Excel (.xlsx).</p>
-      <div class="drop-zone" id="zone-lect">
-        <input type="file" id="file-lect" accept=".xlsx,.xls,.csv" />
-        <div class="drop-icon">📟</div>
-        <h3>Archivo de lecturas de medidores</h3>
-        <p>Arrastrá el archivo aquí o hacé clic para seleccionarlo</p>
-        <div class="drop-estado" id="estado-lect"></div>
+      <p>Elegí si querés usar el archivo guardado en la nube o subir uno desde tu computadora.</p>
+
+      <!-- Opción nube (visible solo si hay archivo guardado) -->
+      <div id="opcion-nube-lect" style="display:none">
+        <div class="opcion-card" id="card-nube-lect" onclick="elegirNubeLect()">
+          <div class="oc-tag">GUARDADO EN LA NUBE</div>
+          <div class="oc-icon">☁️</div>
+          <div class="oc-body">
+            <div class="oc-titulo">Usar archivo de la nube</div>
+            <div class="oc-nombre" id="nube-lect-nombre"></div>
+            <div class="oc-fecha" id="nube-lect-fecha"></div>
+          </div>
+          <div class="oc-check">✓</div>
+        </div>
+        <div class="sel-sep">— o subí un archivo diferente —</div>
       </div>
-      <button class="btn-primario" id="btn-analizar-lect" disabled onclick="analizarLect()">
-        Analizar lecturas →
-      </button>
-      <div id="msg-error-lect"></div>
+
+      <!-- Opción subir local (siempre visible) -->
+      <div class="opcion-card" id="card-upload-lect" onclick="clickUploadLect()">
+        <div class="oc-icon">📟</div>
+        <div class="oc-body">
+          <div class="oc-titulo">Subir archivo desde la computadora</div>
+          <div class="oc-nombre" id="upload-lect-nombre">Hacé clic para seleccionar un archivo Excel o CSV</div>
+        </div>
+        <div class="oc-check">✓</div>
+      </div>
+      <input type="file" id="file-lect" accept=".xlsx,.xls,.csv" style="display:none" onchange="seleccionarArchivoLect(this)" />
+
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn-secundario" onclick="irPaso1Dashboard()">← Volver a PGM</button>
+        <button class="btn-primario" id="btn-analizar-lect" disabled onclick="analizarLect()" style="flex:1;margin:0">
+          Analizar lecturas →
+        </button>
+      </div>
       <div id="spinner-lect" style="display:none" class="spinner-wrap">
         <div class="sp"></div><div class="sp-txt">Procesando hojas...</div>
       </div>
@@ -786,59 +868,20 @@ async function sbGuardarMetadata(meta) {
 }
 
 // ── ARRANQUE: verificar archivos en Supabase ──────────────────
+let metaCloud  = null;
+let pgmFuente  = null; // 'nube' | 'local'
+let lectFuente = null;
+
 async function verificarSupabase() {
-  const estado = document.getElementById('inicio-estado');
-  const errDiv = document.getElementById('inicio-error');
-  const btnMan = document.getElementById('btn-inicio-manual');
-
   try {
-    estado.textContent = 'Verificando archivos en la nube...';
-    const meta = await sbMetadata();
-
-    if (!meta || !meta.pgm || !meta.lecturas) {
-      throw new Error('no-archivos');
-    }
-
-    // Descargar ambos archivos
-    estado.textContent = 'Descargando padrón PGM...';
-    const pgmBuf  = await sbDescargar('pgm.xlsx');
-
-    estado.textContent = 'Descargando archivo de lecturas...';
-    const lectBuf = await sbDescargar('lecturas.xlsx');
-
-    estado.innerHTML = '<span class="inicio-ok">✓ Archivos encontrados. Procesando...</span>';
-
-    // Parsear
-    const wbPGM_  = XLSX.read(pgmBuf,  { type:'array', cellDates:true });
-    const wbLect_ = XLSX.read(lectBuf, { type:'array', cellDates:true });
-
-    pgmData   = parsePGM(wbPGM_);
-    lectData  = parseLect(wbLect_);
-
-    // Mostrar info en header
-    const infoEl = document.getElementById('info-archivos');
-    infoEl.style.display = 'block';
-    infoEl.innerHTML =
-      `PGM: ${meta.pgm.nombre} · ${meta.pgm.fecha}<br>` +
-      `Lecturas: ${meta.lecturas.nombre} · ${meta.lecturas.fecha}`;
-
-    // Ir directo al cruce
-    ocultarInicio();
-    ejecutarCruce();
-    actualizarStepper(3);
-
+    metaCloud = await sbMetadata();
   } catch(e) {
-    if (e.message === 'no-archivos') {
-      estado.textContent = 'No hay archivos cargados aún.';
-      errDiv.style.display = 'block';
-      errDiv.textContent = 'Usá el botón "Actualizar archivos" para subir el PGM y las lecturas por primera vez.';
-    } else {
-      estado.textContent = 'No se pudo conectar a la nube.';
-      errDiv.style.display = 'block';
-      errDiv.textContent = 'Podés cargar los archivos manualmente.';
-    }
-    btnMan.style.display = 'block';
+    metaCloud = null;
   }
+  ocultarInicio();
+  mostrarPantalla('pantalla-sel-pgm');
+  actualizarStepper(1);
+  poblarSelectorPGM();
 }
 
 function ocultarInicio() {
@@ -849,8 +892,85 @@ function ocultarInicio() {
 
 function iniciarManual() {
   ocultarInicio();
-  mostrarPantalla('pantalla-carga-pgm');
+  mostrarPantalla('pantalla-sel-pgm');
   actualizarStepper(1);
+  poblarSelectorPGM();
+}
+
+// ── SELECTOR PGM ─────────────────────────────────────────────
+function poblarSelectorPGM() {
+  if (metaCloud?.pgm) {
+    document.getElementById('opcion-nube-pgm').style.display = 'block';
+    document.getElementById('nube-pgm-nombre').textContent = metaCloud.pgm.nombre;
+    document.getElementById('nube-pgm-fecha').textContent = 'Subido el ' + metaCloud.pgm.fecha;
+    elegirNubePGM(); // pre-seleccionar nube
+  }
+}
+
+function elegirNubePGM() {
+  pgmFuente = 'nube';
+  document.getElementById('card-nube-pgm').classList.add('elegido');
+  document.getElementById('card-upload-pgm').classList.remove('elegido');
+  document.getElementById('btn-analizar-pgm').disabled = false;
+}
+
+function clickUploadPGM() {
+  document.getElementById('file-pgm').click();
+}
+
+function seleccionarArchivoPGM(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      wbPGM = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      pgmFuente = 'local';
+      document.getElementById('upload-pgm-nombre').textContent = '✓ ' + f.name;
+      document.getElementById('card-upload-pgm').classList.add('elegido');
+      document.getElementById('card-nube-pgm')?.classList.remove('elegido');
+      document.getElementById('btn-analizar-pgm').disabled = false;
+    } catch(err) { alert('Error al leer el archivo: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+// ── SELECTOR LECTURAS ─────────────────────────────────────────
+function poblarSelectorLect() {
+  if (metaCloud?.lecturas) {
+    document.getElementById('opcion-nube-lect').style.display = 'block';
+    document.getElementById('nube-lect-nombre').textContent = metaCloud.lecturas.nombre;
+    document.getElementById('nube-lect-fecha').textContent = 'Subido el ' + metaCloud.lecturas.fecha;
+    elegirNubeLect(); // pre-seleccionar nube
+  }
+}
+
+function elegirNubeLect() {
+  lectFuente = 'nube';
+  document.getElementById('card-nube-lect').classList.add('elegido');
+  document.getElementById('card-upload-lect').classList.remove('elegido');
+  document.getElementById('btn-analizar-lect').disabled = false;
+}
+
+function clickUploadLect() {
+  document.getElementById('file-lect').click();
+}
+
+function seleccionarArchivoLect(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      wbLect = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      lectFuente = 'local';
+      document.getElementById('upload-lect-nombre').textContent = '✓ ' + f.name;
+      document.getElementById('card-upload-lect').classList.add('elegido');
+      document.getElementById('card-nube-lect')?.classList.remove('elegido');
+      document.getElementById('btn-analizar-lect').disabled = false;
+    } catch(err) { alert('Error al leer el archivo: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(f);
 }
 
 // ── ADMIN MODAL ───────────────────────────────────────────────
@@ -1073,24 +1193,27 @@ function leerExcel(file, estadoId, zoneId, btn, onLoad) {
 // ═══════════════════════════════════════════════════════════════
 let wbPGM = null;
 
-setupDrop('zone-pgm','file-pgm','estado-pgm','btn-analizar-pgm', (wb, fname) => { wbPGM = wb; });
-
-function analizarPGM() {
+async function analizarPGM() {
   document.getElementById('spinner-pgm').style.display = 'block';
   document.getElementById('btn-analizar-pgm').disabled = true;
-  setTimeout(() => {
-    try {
-      pgmData = parsePGM(wbPGM);
-      renderDashboardPGM();
-      mostrarPantalla('pantalla-dashboard-pgm');
-      actualizarStepper(1);
-    } catch(e) {
-      alert('Error procesando PGM: ' + e.message); console.error(e);
-    } finally {
-      document.getElementById('spinner-pgm').style.display = 'none';
-      document.getElementById('btn-analizar-pgm').disabled = false;
+  try {
+    let wb;
+    if (pgmFuente === 'nube') {
+      const buf = await sbDescargar('pgm.xlsx');
+      wb = XLSX.read(buf, { type:'array', cellDates:true });
+    } else {
+      wb = wbPGM;
     }
-  }, 60);
+    pgmData = parsePGM(wb);
+    renderDashboardPGM();
+    mostrarPantalla('pantalla-dashboard-pgm');
+    actualizarStepper(1);
+  } catch(e) {
+    alert('Error procesando PGM: ' + e.message); console.error(e);
+  } finally {
+    document.getElementById('spinner-pgm').style.display = 'none';
+    document.getElementById('btn-analizar-pgm').disabled = false;
+  }
 }
 
 function parsePGM(wb) {
@@ -1323,12 +1446,16 @@ function exportarInconsistPGM() {
 }
 
 function reiniciarPGM() {
-  pgmData=[]; wbPGM=null;
+  pgmData=[]; wbPGM=null; pgmFuente=null;
   document.getElementById('file-pgm').value='';
-  document.getElementById('zone-pgm').classList.remove('cargado');
-  document.getElementById('estado-pgm').style.display='none';
   document.getElementById('btn-analizar-pgm').disabled=true;
-  mostrarPantalla('pantalla-carga-pgm');
+  document.getElementById('card-upload-pgm').classList.remove('elegido');
+  document.getElementById('upload-pgm-nombre').textContent='Hacé clic para seleccionar un archivo Excel o CSV';
+  // Repoblar selector (mantiene la opción nube si existe)
+  const cardNube = document.getElementById('card-nube-pgm');
+  if (cardNube) cardNube.classList.remove('elegido');
+  mostrarPantalla('pantalla-sel-pgm');
+  poblarSelectorPGM();
   actualizarStepper(1);
 }
 
@@ -1337,23 +1464,26 @@ function reiniciarPGM() {
 // ═══════════════════════════════════════════════════════════════
 let wbLect = null;
 
-setupDrop('zone-lect','file-lect','estado-lect','btn-analizar-lect', (wb,fname)=>{ wbLect=wb; });
-
-function analizarLect() {
+async function analizarLect() {
   document.getElementById('spinner-lect').style.display='block';
   document.getElementById('btn-analizar-lect').disabled=true;
-  setTimeout(()=>{
-    try {
-      lectData = parseLect(wbLect);
-      renderDashboardLect();
-      mostrarPantalla('pantalla-dashboard-lect');
-      actualizarStepper(2);
-    } catch(e){ alert('Error procesando lecturas: '+e.message); console.error(e); }
-    finally {
-      document.getElementById('spinner-lect').style.display='none';
-      document.getElementById('btn-analizar-lect').disabled=false;
+  try {
+    let wb;
+    if (lectFuente === 'nube') {
+      const buf = await sbDescargar('lecturas.xlsx');
+      wb = XLSX.read(buf, { type:'array', cellDates:true });
+    } else {
+      wb = wbLect;
     }
-  },60);
+    lectData = parseLect(wb);
+    renderDashboardLect();
+    mostrarPantalla('pantalla-dashboard-lect');
+    actualizarStepper(2);
+  } catch(e){ alert('Error procesando lecturas: '+e.message); console.error(e); }
+  finally {
+    document.getElementById('spinner-lect').style.display='none';
+    document.getElementById('btn-analizar-lect').disabled=false;
+  }
 }
 
 function parseLect(wb) {
@@ -1536,12 +1666,15 @@ function exportarLect() {
 }
 
 function reiniciarLect() {
-  lectData=[]; wbLect=null;
+  lectData=[]; wbLect=null; lectFuente=null;
   document.getElementById('file-lect').value='';
-  document.getElementById('zone-lect').classList.remove('cargado');
-  document.getElementById('estado-lect').style.display='none';
   document.getElementById('btn-analizar-lect').disabled=true;
-  mostrarPantalla('pantalla-carga-lect');
+  document.getElementById('card-upload-lect').classList.remove('elegido');
+  document.getElementById('upload-lect-nombre').textContent='Hacé clic para seleccionar un archivo Excel o CSV';
+  const cardNube = document.getElementById('card-nube-lect');
+  if (cardNube) cardNube.classList.remove('elegido');
+  mostrarPantalla('pantalla-sel-lect');
+  poblarSelectorLect();
   actualizarStepper(2);
 }
 
@@ -1791,8 +1924,17 @@ function exportarCruce() {
 // ═══════════════════════════════════════════════════════════════
 // NAVEGACIÓN ENTRE PASOS
 // ═══════════════════════════════════════════════════════════════
+function irPaso1Selector() {
+  mostrarPantalla('pantalla-sel-pgm');
+  actualizarStepper(1);
+}
 function irPaso1Dashboard() {
-  mostrarPantalla('pantalla-dashboard-pgm');
+  if (pgmData.length > 0) {
+    mostrarPantalla('pantalla-dashboard-pgm');
+  } else {
+    mostrarPantalla('pantalla-sel-pgm');
+    poblarSelectorPGM();
+  }
   actualizarStepper(1);
 }
 function irPaso2() {
@@ -1801,7 +1943,8 @@ function irPaso2() {
     mostrarPantalla('pantalla-dashboard-lect');
     actualizarStepper(2);
   } else {
-    mostrarPantalla('pantalla-carga-lect');
+    mostrarPantalla('pantalla-sel-lect');
+    poblarSelectorLect();
     actualizarStepper(2);
   }
 }
