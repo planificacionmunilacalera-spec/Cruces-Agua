@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cruce de Cuentas de Agua</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --verde:       #2e7d32; --verde-bg:    #e8f5e9;
+      --amarillo:    #e65100; --amarillo-bg: #fff3e0;
+      --rojo:        #c62828; --rojo-bg:     #ffebee;
+      --gris:        #546e7a; --gris-bg:     #eceff1;
+      --azul:        #0277bd; --azul-bg:     #e1f5fe;
+      --naranja:     #f57f17; --naranja-bg:  #fff8e1;
+      --primario:    #1565c0;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; color: #1a2332; min-height: 100vh; }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      color: white; padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; }
+    header p  { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+
+    /* ── STEPPER ── */
+    .stepper {
+      display: flex; align-items: center; gap: 0; background: white;
+      padding: 0 28px; border-bottom: 1px solid #e0e7ef;
+    }
+    .step {
+      display: flex; align-items: center; gap: 10px; padding: 14px 20px;
+      font-size: 0.82rem; color: #90a4ae; border-bottom: 3px solid transparent;
+      cursor: default; transition: all 0.2s;
+    }
+    .step.activo   { color: #1565c0; border-bottom-color: #1565c0; font-weight: 700; }
+    .step.completo { color: #2e7d32; border-bottom-color: #2e7d32; cursor: pointer; }
+    .step .num {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; background: #e3eaf2; color: #90a4ae;
+    }
+    .step.activo .num   { background: #1565c0; color: white; }
+    .step.completo .num { background: #2e7d32; color: white; }
+    .step-sep { width: 32px; height: 1px; background: #e0e7ef; flex-shrink: 0; }
+
+    main { padding: 24px 28px; max-width: 1500px; margin: 0 auto; }
+
+    /* ── PANTALLA CARGA ── */
+    .pantalla { display: none; }
+    .pantalla.activa { display: block; }
+
+    .carga-box {
+      background: white; border-radius: 14px; padding: 36px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07); max-width: 700px; margin: 0 auto;
+    }
+    .carga-box h2 { font-size: 1.05rem; color: #1565c0; margin-bottom: 6px; }
+    .carga-box > p { font-size: 0.85rem; color: #607d8b; margin-bottom: 28px; }
+
+    .drop-zone {
+      border: 2px dashed #90a4ae; border-radius: 12px; padding: 36px 24px;
+      text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: #1565c0; background: #e8f0fe; }
+    .drop-zone.cargado { border-color: #2e7d32; background: #f1f8e9; }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-icon { font-size: 2.4rem; margin-bottom: 12px; }
+    .drop-zone h3 { font-size: 0.95rem; font-weight: 700; color: #37474f; margin-bottom: 6px; }
+    .drop-zone p  { font-size: 0.8rem; color: #78909c; }
+    .drop-estado  { font-size: 0.83rem; font-weight: 600; color: #2e7d32; margin-top: 12px; display: none; }
+    .drop-zone.cargado .drop-estado { display: block; }
+
+    .btn-primario {
+      display: block; width: 100%; margin-top: 20px; padding: 13px;
+      background: linear-gradient(90deg, #1565c0, #1976d2);
+      color: white; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-primario:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primario:not(:disabled):hover { opacity: 0.88; }
+
+    .btn-secundario {
+      padding: 9px 20px; background: #e3eaf2; border: none; border-radius: 8px;
+      font-size: 0.83rem; font-weight: 600; cursor: pointer; color: #546e7a;
+    }
+    .btn-secundario:hover { background: #cfd8dc; }
+
+    .btn-verde {
+      padding: 8px 16px; background: #2e7d32; color: white; border: none;
+      border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-verde:hover { opacity: 0.88; }
+
+    #msg-error {
+      display: none; background: #ffebee; border: 1px solid #ef9a9a;
+      border-radius: 8px; padding: 12px 16px; margin-top: 14px;
+      color: #c62828; font-size: 0.84rem;
+    }
+
+    /* ── KPI CARDS ── */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(155px,1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .kpi {
+      background: white; border-radius: 12px; padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-top: 4px solid #1565c0;
+    }
+    .kpi.verde    { border-top-color: var(--verde); }
+    .kpi.amarillo { border-top-color: var(--amarillo); }
+    .kpi.rojo     { border-top-color: var(--rojo); }
+    .kpi.gris     { border-top-color: var(--gris); }
+    .kpi.azul     { border-top-color: var(--azul); }
+    .kpi.naranja  { border-top-color: var(--naranja); }
+    .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.7px; color: #90a4ae; margin-bottom: 6px; }
+    .kpi .value { font-size: 1.85rem; font-weight: 800; line-height: 1; }
+    .kpi .sub   { font-size: 0.72rem; color: #b0bec5; margin-top: 4px; }
+
+    /* ── PANEL ── */
+    .panel {
+      background: white; border-radius: 12px; padding: 20px 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 18px;
+    }
+    .panel-titulo {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px;
+      color: #90a4ae; margin-bottom: 14px; font-weight: 700;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+    }
+
+    /* ── GRIDS ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── FILTROS ── */
+    .filtros {
+      background: white; border-radius: 12px; padding: 16px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 18px;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+    }
+    .fil { display: flex; flex-direction: column; gap: 4px; }
+    .fil label { font-size: 0.7rem; color: #607d8b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .fil select, .fil input {
+      padding: 7px 10px; border: 1px solid #cfd8dc; border-radius: 8px;
+      font-size: 0.83rem; background: white; min-width: 150px;
+    }
+
+    /* ── TABLA ── */
+    .tabla-wrap { overflow-x: auto; max-height: 440px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.79rem; }
+    thead th {
+      background: #e8edf3; padding: 8px 10px; text-align: left;
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px;
+      color: #546e7a; position: sticky; top: 0; z-index: 1; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #f0f4f8; }
+    tbody tr:hover { background: #f7fafc; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover { background: #e8f0fe; }
+    tbody tr.seleccionado { background: #bbdefb !important; }
+    td { padding: 7px 10px; white-space: nowrap; }
+    td.wrap { white-space: normal; min-width: 180px; font-size: 0.75rem; color: #607d8b; }
+    td.r { text-align: right; }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+    }
+    .badge.verde    { background: var(--verde-bg);    color: var(--verde); }
+    .badge.amarillo { background: var(--amarillo-bg); color: var(--amarillo); }
+    .badge.rojo     { background: var(--rojo-bg);     color: var(--rojo); }
+    .badge.gris     { background: var(--gris-bg);     color: var(--gris); }
+    .badge.azul     { background: var(--azul-bg);     color: var(--azul); }
+    .badge.naranja  { background: var(--naranja-bg);  color: var(--naranja); }
+
+    /* ── PAGINACIÓN ── */
+    .paginacion { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .paginacion button {
+      padding: 4px 11px; border: 1px solid #cfd8dc; background: white;
+      border-radius: 6px; font-size: 0.78rem; cursor: pointer;
+    }
+    .paginacion button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .paginacion button.activo { background: #1565c0; color: white; border-color: #1565c0; }
+    .paginacion span { font-size: 0.78rem; color: #607d8b; }
+
+    /* ── SPINNER ── */
+    .spinner-wrap { text-align: center; padding: 40px 20px; }
+    .sp { width: 36px; height: 36px; border: 4px solid #e3eaf2; border-top-color: #1565c0;
+      border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sp-txt { font-size: 0.84rem; color: #90a4ae; }
+
+    .empty { text-align: center; padding: 30px; color: #b0bec5; font-size: 0.85rem; }
+
+    /* ── ALERTA INTERNA ── */
+    .alerta {
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.84rem;
+    }
+    .alerta.rojo { background: var(--rojo-bg); color: var(--rojo); border: 1px solid #ef9a9a; }
+    .alerta.naranja { background: var(--naranja-bg); color: var(--naranja); border: 1px solid #ffcc80; }
+    .alerta.verde { background: var(--verde-bg); color: var(--verde); border: 1px solid #a5d6a7; }
+
+    canvas { max-height: 280px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Cruce de Cuentas de Agua</h1>
+    <p>Análisis del padrón PGM · Análisis de lecturas · Cruce de datos</p>
+  </div>
+</header>
+
+<!-- STEPPER -->
+<div class="stepper">
+  <div class="step activo" id="step1">
+    <div class="num">1</div>
+    Padrón PGM
+  </div>
+  <div class="step-sep"></div>
+  <div class="step" id="step2">
+    <div class="num">2</div>
+    Lecturas
+  </div>
+  <div class="step-sep"></div>
+  <div class="step" id="step3">
+    <div class="num">3</div>
+    Cruce
+  </div>
+</div>
+
+<main>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PASO 1 — CARGA PGM                                     -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="pantalla activa" id="pantalla-carga-pgm">
+    <div class="carga-box">
+      <h2>Paso 1 — Padrón PGM</h2>
+      <p>Cargá el archivo de cuentas activas del sistema PGM. Formato Excel (.xlsx) o CSV.</p>
+      <div class="drop-zone" id="zone-pgm">
+        <input type="file" id="file-pgm" accept=".xlsx,.xls,.csv" />
+        <div class="drop-icon">📋</div>
+        <h3>Padrón PGM — Cuentas activas</h3>
+        <p>Arrastrá el archivo aquí o hacé clic para seleccionarlo</p>
+        <div class="drop-estado" id="estado-pgm"></div>
+      </div>
+      <button class="btn-primario" id="btn-analizar-pgm" disabled onclick="analizarPGM()">
+        Analizar padrón PGM →
+      </button>
+      <div id="msg-error"></div>
+      <div id="spinner-pgm" style="display:none" class="spinner-wrap">
+        <div class="sp"></div><div class="sp-txt">Procesando archivo...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PASO 1 — DASHBOARD PGM                                -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="pantalla" id="pantalla-dashboard-pgm">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1rem;font-weight:700;color:#37474f">Análisis del Padrón PGM</h2>
+        <p id="pgm-subtitulo" style="font-size:0.8rem;color:#90a4ae;margin-top:2px"></p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-secundario" onclick="reiniciarPGM()">← Cargar otro archivo</button>
+        <button class="btn-primario" style="width:auto;margin:0;padding:10px 22px" onclick="irPaso2()">
+          Continuar con Lecturas →
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs PGM -->
+    <div class="kpi-grid" id="kpi-pgm"></div>
+
+    <!-- Alerta inconsistencias internas PGM -->
+    <div id="alerta-pgm"></div>
+
+    <!-- Gráfico + tabla barrio -->
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-titulo">Distribución por modalidad (TIPO_PLAN)</div>
+        <canvas id="chart-pgm-donut"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-titulo">Barrios con más inconsistencias internas</div>
+        <canvas id="chart-pgm-barrios"></canvas>
+      </div>
+    </div>
+
+    <!-- Inconsistencias internas del PGM -->
+    <div class="panel" id="panel-inconsist-pgm" style="display:none">
+      <div class="panel-header">
+        <div class="panel-titulo">⚠️ Inconsistencias internas del PGM (TIPO_PLAN vs NRO_MEDIDOR)</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="fil">
+            <label>Barrio</label>
+            <select id="fil-inconsist-barrio" onchange="filtrarInconsist()">
+              <option value="">Todos los barrios</option>
+            </select>
+          </div>
+          <button class="btn-secundario" onclick="limpiarFiltroInconsist()">✕ Limpiar</button>
+          <button class="btn-verde" onclick="exportarInconsistPGM()">⬇ Exportar</button>
+        </div>
+      </div>
+      <div id="info-inconsist" style="font-size:0.8rem;color:#607d8b;margin-bottom:8px"></div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>N° Cuenta</th><th>Titular</th><th>Barrio</th>
+            <th>TIPO_PLAN</th><th>NRO_MEDIDOR</th><th>Inconsistencia</th>
+          </tr></thead>
+          <tbody id="tbody-inconsist-pgm"></tbody>
+        </table>
+      </div>
+      <div class="paginacion" id="pag-inconsist"></div>
+    </div>
+
+    <!-- Tabla detalle PGM -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-titulo">Detalle de cuentas PGM</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-verde" onclick="exportarDetallePGM()">⬇ Exportar filtrado</button>
+        </div>
+      </div>
+      <div class="filtros" style="box-shadow:none;border:1px solid #e3eaf2;margin-bottom:14px">
+        <div class="fil">
+          <label>Barrio</label>
+          <select id="fil-pgm-barrio" onchange="filtrarPGM()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>Modalidad</label>
+          <select id="fil-pgm-modal" onchange="filtrarPGM()">
+            <option value="">Todas</option>
+            <option value="con">CON MEDIDOR</option>
+            <option value="sin">SIN MEDIDOR</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>N° Medidor</label>
+          <select id="fil-pgm-nromedidor" onchange="filtrarPGM()">
+            <option value="">Todos</option>
+            <option value="con">Con número</option>
+            <option value="sin">Sin número</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>Inconsistencia interna</label>
+          <select id="fil-pgm-inconsist" onchange="filtrarPGM()">
+            <option value="">Todas</option>
+            <option value="si">Solo inconsistentes</option>
+            <option value="no">Solo consistentes</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>Buscar cuenta / titular</label>
+          <input type="text" id="fil-pgm-buscar" placeholder="Número o nombre..." oninput="filtrarPGM()" />
+        </div>
+        <button class="btn-secundario" onclick="limpiarFiltroPGM()">✕ Limpiar</button>
+      </div>
+      <div id="info-pgm" style="font-size:0.8rem;color:#607d8b;margin-bottom:10px"></div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>N° Cuenta</th><th>Titular</th><th>Barrio</th>
+            <th>TIPO_PLAN</th><th>NRO_MEDIDOR</th><th>Zona</th><th>MZN/Lote</th><th>Nomenclatura</th>
+          </tr></thead>
+          <tbody id="tbody-pgm"></tbody>
+        </table>
+      </div>
+      <div class="paginacion" id="pag-pgm"></div>
+    </div>
+
+  </div><!-- /dashboard-pgm -->
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PASO 2 — CARGA LECTURAS                               -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="pantalla" id="pantalla-carga-lect">
+    <div class="carga-box">
+      <h2>Paso 2 — Archivo de Lecturas</h2>
+      <p>Cargá el archivo de lecturas de medidores (multi-hoja por barrio). Formato Excel (.xlsx).</p>
+      <div class="drop-zone" id="zone-lect">
+        <input type="file" id="file-lect" accept=".xlsx,.xls,.csv" />
+        <div class="drop-icon">📟</div>
+        <h3>Archivo de lecturas de medidores</h3>
+        <p>Arrastrá el archivo aquí o hacé clic para seleccionarlo</p>
+        <div class="drop-estado" id="estado-lect"></div>
+      </div>
+      <button class="btn-primario" id="btn-analizar-lect" disabled onclick="analizarLect()">
+        Analizar lecturas →
+      </button>
+      <div id="msg-error-lect"></div>
+      <div id="spinner-lect" style="display:none" class="spinner-wrap">
+        <div class="sp"></div><div class="sp-txt">Procesando hojas...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PASO 2 — DASHBOARD LECTURAS                           -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="pantalla" id="pantalla-dashboard-lect">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1rem;font-weight:700;color:#37474f">Análisis de Lecturas</h2>
+        <p id="lect-subtitulo" style="font-size:0.8rem;color:#90a4ae;margin-top:2px"></p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-secundario" onclick="reiniciarLect()">← Cargar otro archivo</button>
+        <button class="btn-primario" style="width:auto;margin:0;padding:10px 22px" onclick="ejecutarCruce()">
+          Realizar cruce →
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs lecturas -->
+    <div class="kpi-grid" id="kpi-lect"></div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-titulo">Lecturas por barrio/zona</div>
+        <canvas id="chart-lect-barrios"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-titulo">Observaciones registradas</div>
+        <canvas id="chart-lect-obs"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabla lecturas -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-titulo">Detalle de lecturas</div>
+        <button class="btn-verde" onclick="exportarLect()">⬇ Exportar filtrado</button>
+      </div>
+      <div class="filtros" style="box-shadow:none;border:1px solid #e3eaf2;margin-bottom:14px">
+        <div class="fil">
+          <label>Barrio/Zona</label>
+          <select id="fil-lect-barrio" onchange="filtrarLect()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>Observación</label>
+          <select id="fil-lect-obs" onchange="filtrarLect()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="fil">
+          <label>Buscar cuenta / medidor</label>
+          <input type="text" id="fil-lect-buscar" placeholder="Número..." oninput="filtrarLect()" />
+        </div>
+        <button class="btn-secundario" onclick="limpiarFiltroLect()">✕ Limpiar</button>
+      </div>
+      <div id="info-lect" style="font-size:0.8rem;color:#607d8b;margin-bottom:10px"></div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>N° Cuenta</th><th>N° Medidor</th><th>Barrio/Zona</th>
+            <th>Dirección</th><th>Lectura</th><th>Fecha</th><th>Observación</th>
+          </tr></thead>
+          <tbody id="tbody-lect"></tbody>
+        </table>
+      </div>
+      <div class="paginacion" id="pag-lect"></div>
+    </div>
+
+  </div><!-- /dashboard-lect -->
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PASO 3 — CRUCE                                        -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="pantalla" id="pantalla-cruce">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1rem;font-weight:700;color:#37474f">Cruce PGM × Lecturas</h2>
+        <p id="cruce-subtitulo" style="font-size:0.8rem;color:#90a4ae;margin-top:2px"></p>
+      </div>
+      <button class="btn-secundario" onclick="irPaso2()">← Volver a Lecturas</button>
+    </div>
+
+    <!-- KPIs cruce -->
+    <div class="kpi-grid" id="kpi-cruce"></div>
+
+    <!-- Leyenda estados -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+      <span class="badge verde">✅ Medidor ok</span>
+      <span class="badge amarillo">⚠ Medida sin lectura</span>
+      <span class="badge rojo">🔴 Inconsistencia</span>
+      <span class="badge gris">⬜ Sin medidor</span>
+      <span class="badge azul">🔵 En lecturas, no en PGM</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-titulo">Distribución general por estado</div>
+        <canvas id="chart-cruce-donut"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-titulo">Clic en un barrio para filtrar el detalle</div>
+        <div class="tabla-wrap" style="max-height:280px">
+          <table class="tabla-barrio">
+            <thead><tr>
+              <th>Barrio</th>
+              <th title="Medidor ok" style="color:var(--verde)">✅</th>
+              <th title="Medida sin lectura" style="color:var(--amarillo)">⚠</th>
+              <th title="Inconsistencia" style="color:var(--rojo)">🔴</th>
+              <th title="Sin medidor" style="color:var(--gris)">⬜</th>
+              <th title="No en PGM" style="color:var(--azul)">🔵</th>
+            </tr></thead>
+            <tbody id="tbody-barrio-cruce"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-titulo">Estados por barrio</div>
+      <canvas id="chart-cruce-barras" style="max-height:320px"></canvas>
+    </div>
+
+    <!-- Filtros cruce -->
+    <div class="filtros">
+      <div class="fil">
+        <label>Barrio</label>
+        <select id="fil-cruce-barrio" onchange="filtrarCruce()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="fil">
+        <label>Estado final</label>
+        <select id="fil-cruce-estado" onchange="filtrarCruce()">
+          <option value="">Todos</option>
+          <option value="verde">✅ Medidor ok</option>
+          <option value="amarillo">⚠ Medida sin lectura</option>
+          <option value="rojo">🔴 Inconsistencia</option>
+          <option value="gris">⬜ Sin medidor</option>
+          <option value="azul">🔵 En lecturas, no en PGM</option>
+        </select>
+      </div>
+      <div class="fil">
+        <label>Modalidad PGM</label>
+        <select id="fil-cruce-modal" onchange="filtrarCruce()">
+          <option value="">Todas</option>
+          <option value="con">CON MEDIDOR</option>
+          <option value="sin">SIN MEDIDOR</option>
+          <option value="huerfana">No en PGM</option>
+        </select>
+      </div>
+      <div class="fil">
+        <label>Buscar cuenta / titular</label>
+        <input type="text" id="fil-cruce-buscar" placeholder="Número o nombre..." oninput="filtrarCruce()" />
+      </div>
+      <button class="btn-secundario" onclick="limpiarFiltroCruce()">✕ Limpiar</button>
+    </div>
+
+    <!-- Tabla cruce -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-titulo">Detalle de cuentas</div>
+          <div id="info-cruce" style="font-size:0.8rem;color:#607d8b;margin-top:4px"></div>
+        </div>
+        <button class="btn-verde" onclick="exportarCruce()">⬇ Exportar filtrado a Excel</button>
+      </div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>N° Cuenta</th><th>Titular</th><th>Barrio PGM</th>
+            <th>TIPO_PLAN</th><th>NRO_MEDIDOR PGM</th>
+            <th>En lecturas</th><th>Medidor lectura</th>
+            <th>Lectura</th><th>Fecha</th>
+            <th>Estado final</th><th>Observaciones</th>
+          </tr></thead>
+          <tbody id="tbody-cruce"></tbody>
+        </table>
+      </div>
+      <div class="paginacion" id="pag-cruce"></div>
+    </div>
+
+  </div><!-- /cruce -->
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════════
+const POR_PAG = 100;
+let pgmData    = [];   // array de objetos normalizados
+let lectData   = [];   // array de objetos normalizados
+let cruceData  = [];   // resultado del cruce
+
+let pgmFiltrado  = [];
+let lectFiltrado = [];
+let cruceFiltrado= [];
+
+let pagPGM = 1, pagLect = 1, pagCruce = 1, pagInconsist = 1;
+let charts = {};
+let barrioSelCruce = null;
+let inconsistFiltrado = [];
+
+const ESTADOS_LABEL = {
+  verde:    'Medidor instalado y en sistema de lectura',
+  amarillo: 'Figura como medida en PGM, pero no aparece para lectura',
+  rojo:     'Posible inconsistencia: aparece con lectura pero en PGM figura no medida',
+  gris:     'Sin medidor registrado',
+  azul:     'Cuenta en lecturas no encontrada en padrón PGM',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITARIOS
+// ═══════════════════════════════════════════════════════════════
+const fmt  = n => Number(n).toLocaleString('es-AR');
+const norm = v => String(v ?? '').trim().replace(/^0+/, '') || '0'; // quita ceros adelante
+
+// Normaliza observaciones: sin espacios extra, sin acentos, mayúsculas → texto capitalizado
+function normObs(v) {
+  const s = v.trim();
+  if (!s) return '';
+  // Quitar espacios múltiples, normalizar acentos y pasar a título
+  const limpio = s
+    .replace(/\s+/g, ' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // quita tildes
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')                        // quita caracteres raros
+    .trim()
+    .replace(/\s+/g, ' ');
+  // Capitalizar primera letra de cada palabra
+  return limpio.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function mostrarPantalla(id) {
+  document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+  document.getElementById(id).classList.add('activa');
+}
+
+function actualizarStepper(paso) {
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('step'+i);
+    el.classList.remove('activo','completo');
+    if (i < paso) el.classList.add('completo');
+    else if (i === paso) el.classList.add('activo');
+  });
+  document.getElementById('step1').onclick = paso > 1 ? irPaso1Dashboard : null;
+  document.getElementById('step2').onclick = paso > 2 ? irPaso2 : null;
+}
+
+function mkChart(id, type, data, opts={}) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type, data,
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position:'bottom', labels:{ font:{size:11}, boxWidth:12 } } },
+      scales: type==='doughnut'||type==='pie' ? {} : {
+        x:{ ticks:{font:{size:10}} }, y:{ ticks:{font:{size:10}} }
+      },
+      ...opts
+    }
+  });
+}
+
+const COLORES = ['#1565c0','#2e7d32','#c62828','#546e7a','#0277bd',
+  '#f57f17','#6a1b9a','#00838f','#e65100','#283593','#1b5e20','#b71c1c'];
+const col = i => COLORES[i % COLORES.length];
+
+function renderPag(pagId, total, pagActual, setPag, render) {
+  const totalPags = Math.ceil(total / POR_PAG);
+  const div = document.getElementById(pagId);
+  if (totalPags <= 1) { div.innerHTML=''; return; }
+  let html = `<span>Pág ${pagActual} de ${totalPags} (${fmt(total)})</span>`;
+  html += `<button onclick="${setPag}(1)" ${pagActual===1?'disabled':''}>«</button>`;
+  html += `<button onclick="${setPag}(${pagActual-1})" ${pagActual===1?'disabled':''}>‹</button>`;
+  const ini=Math.max(1,pagActual-2), fin=Math.min(totalPags,pagActual+2);
+  for(let p=ini;p<=fin;p++) html+=`<button onclick="${setPag}(${p})" class="${p===pagActual?'activo':''}">${p}</button>`;
+  html += `<button onclick="${setPag}(${pagActual+1})" ${pagActual===totalPags?'disabled':''}>›</button>`;
+  html += `<button onclick="${setPag}(${totalPags})" ${pagActual===totalPags?'disabled':''}>»</button>`;
+  div.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CARGA DE ARCHIVOS
+// ═══════════════════════════════════════════════════════════════
+function setupDrop(zoneId, fileId, estadoId, btnId, onLoad) {
+  const zone  = document.getElementById(zoneId);
+  const input = document.getElementById(fileId);
+  const btn   = document.getElementById(btnId);
+
+  input.addEventListener('change', () => { if(input.files[0]) leerExcel(input.files[0], estadoId, zoneId, btn, onLoad); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave',()=> zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if(f) leerExcel(f, estadoId, zoneId, btn, onLoad);
+  });
+  zone.addEventListener('click', e => { if(e.target!==input) input.click(); });
+}
+
+function leerExcel(file, estadoId, zoneId, btn, onLoad) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      onLoad(wb, file.name);
+      document.getElementById(estadoId).textContent = '✓ ' + file.name;
+      document.getElementById(estadoId).style.display = 'block';
+      document.getElementById(zoneId).classList.add('cargado');
+      btn.disabled = false;
+    } catch(err) {
+      console.error(err);
+      alert('Error al leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PASO 1 — PGM
+// ═══════════════════════════════════════════════════════════════
+let wbPGM = null;
+
+setupDrop('zone-pgm','file-pgm','estado-pgm','btn-analizar-pgm', (wb, fname) => { wbPGM = wb; });
+
+function analizarPGM() {
+  document.getElementById('spinner-pgm').style.display = 'block';
+  document.getElementById('btn-analizar-pgm').disabled = true;
+  setTimeout(() => {
+    try {
+      pgmData = parsePGM(wbPGM);
+      renderDashboardPGM();
+      mostrarPantalla('pantalla-dashboard-pgm');
+      actualizarStepper(1);
+    } catch(e) {
+      alert('Error procesando PGM: ' + e.message); console.error(e);
+    } finally {
+      document.getElementById('spinner-pgm').style.display = 'none';
+      document.getElementById('btn-analizar-pgm').disabled = false;
+    }
+  }, 60);
+}
+
+function parsePGM(wb) {
+  const ws   = wb.Sheets[wb.SheetNames[0]];
+  const raw  = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+  if (raw.length < 2) throw new Error('El archivo PGM parece estar vacío.');
+
+  const headers = raw[0].map(h => String(h).trim().toUpperCase());
+  const idx = name => headers.findIndex(h => h.includes(name));
+
+  // Columnas conocidas del PGM
+  const iCuenta    = idx('CUENTA');
+  const iDenom     = idx('DENOMINACION');
+  const iTipoPlan  = idx('TIPO_PLAN');
+  const iNroMed    = idx('NRO_MEDIDOR');
+  const iBarrio    = idx('BARRIO');
+  const iCateg     = idx('CATEGORIA');
+  const iNomc      = idx('NOMENCLATURA');
+  const iMznLote   = headers.findIndex(h => h.includes('MZN') || h.includes('MATRICULA_PADRON'));
+
+  if (iCuenta < 0 || iTipoPlan < 0) throw new Error('No se encontraron columnas CUENTA o TIPO_PLAN. Verificá el archivo.');
+
+  return raw.slice(1).filter(r => r[iCuenta]).map(r => {
+    const cuentaRaw = String(r[iCuenta]).trim();
+    const tipoPlan  = String(r[iTipoPlan] || '').trim();
+    const nroMed    = iNroMed >= 0 ? String(r[iNroMed] || '').trim() : '';
+    const esMedida  = tipoPlan.toUpperCase().includes('CON MEDIDOR');
+    const tieneNro  = nroMed.replace(/\s/g,'') !== '';
+
+    // Inconsistencia interna: TIPO_PLAN dice una cosa pero NRO_MEDIDOR dice otra
+    let inconsistInterna = null;
+    if (esMedida && !tieneNro)  inconsistInterna = 'TIPO_PLAN = CON MEDIDOR pero sin NRO_MEDIDOR';
+    if (!esMedida && tieneNro)  inconsistInterna = 'TIPO_PLAN = SIN MEDIDOR pero tiene NRO_MEDIDOR';
+
+    return {
+      cuentaRaw,
+      cuentaNorm: norm(cuentaRaw),
+      titular:    iDenom   >= 0 ? String(r[iDenom]  || '').trim() : '',
+      barrio:     iBarrio  >= 0 ? String(r[iBarrio]  || '').trim().replace(/\s+/g,' ').toUpperCase() : 'SIN BARRIO',
+      zona:       iCateg   >= 0 ? String(r[iCateg]   || '').trim() : '',
+      tipoPlan,
+      esMedida,
+      nroMed,
+      tieneNro,
+      mznLote:    iMznLote >= 0 ? String(r[iMznLote] || '').trim() : '',
+      nomenclatura: iNomc  >= 0 ? String(r[iNomc]    || '').trim() : '',
+      inconsistInterna,
+    };
+  });
+}
+
+function renderDashboardPGM() {
+  const total     = pgmData.length;
+  const conMed    = pgmData.filter(r => r.esMedida).length;
+  const sinMed    = pgmData.filter(r => !r.esMedida).length;
+  const conNro    = pgmData.filter(r => r.tieneNro).length;
+  const sinNro    = pgmData.filter(r => !r.tieneNro).length;
+  const inconsist = pgmData.filter(r => r.inconsistInterna).length;
+  const barrios   = new Set(pgmData.map(r=>r.barrio)).size;
+
+  document.getElementById('pgm-subtitulo').textContent =
+    `${fmt(total)} cuentas · ${barrios} barrios`;
+
+  // KPIs
+  document.getElementById('kpi-pgm').innerHTML = `
+    <div class="kpi"><div class="label">Total cuentas</div><div class="value">${fmt(total)}</div><div class="sub">en padrón PGM</div></div>
+    <div class="kpi verde"><div class="label">CON MEDIDOR (TIPO_PLAN)</div><div class="value">${fmt(conMed)}</div><div class="sub">modalidad medida</div></div>
+    <div class="kpi gris"><div class="label">SIN MEDIDOR (TIPO_PLAN)</div><div class="value">${fmt(sinMed)}</div><div class="sub">modalidad no medida</div></div>
+    <div class="kpi azul"><div class="label">Con NRO_MEDIDOR real</div><div class="value">${fmt(conNro)}</div><div class="sub">número de medidor cargado</div></div>
+    <div class="kpi naranja"><div class="label">Sin NRO_MEDIDOR real</div><div class="value">${fmt(sinNro)}</div><div class="sub">número vacío en padrón</div></div>
+    <div class="kpi rojo"><div class="label">Inconsistencias internas</div><div class="value">${fmt(inconsist)}</div><div class="sub">TIPO_PLAN ≠ NRO_MEDIDOR</div></div>
+  `;
+
+  // Alerta
+  const alertDiv = document.getElementById('alerta-pgm');
+  if (inconsist > 0) {
+    alertDiv.innerHTML = `<div class="alerta naranja">⚠️ Se encontraron <strong>${fmt(inconsist)} cuentas</strong> con inconsistencia interna en el PGM: el TIPO_PLAN y la presencia/ausencia de NRO_MEDIDOR no coinciden. Esto puede afectar el cruce. Revisalas en la tabla de inconsistencias.</div>`;
+  } else {
+    alertDiv.innerHTML = `<div class="alerta verde">✓ No se encontraron inconsistencias internas en el PGM. TIPO_PLAN y NRO_MEDIDOR son coherentes en todas las cuentas.</div>`;
+  }
+
+  // Donut
+  mkChart('chart-pgm-donut','doughnut',{
+    labels:['CON MEDIDOR','SIN MEDIDOR'],
+    datasets:[{ data:[conMed,sinMed], backgroundColor:['#2e7d32','#90a4ae'], borderWidth:2, borderColor:'#fff' }]
+  });
+
+  // Barrios ordenados por cantidad de inconsistencias internas
+  const incPorBarrio = {};
+  pgmData.filter(r => r.inconsistInterna).forEach(r => {
+    incPorBarrio[r.barrio] = (incPorBarrio[r.barrio]||0)+1;
+  });
+  const topInc = Object.entries(incPorBarrio).sort((a,b)=>b[1]-a[1]);
+  if (topInc.length > 0) {
+    mkChart('chart-pgm-barrios','bar',{
+      labels: topInc.map(x=>x[0]),
+      datasets:[{
+        label:'Inconsistencias internas',
+        data: topInc.map(x=>x[1]),
+        backgroundColor: '#e65100',
+        borderRadius: 4,
+      }]
+    },{
+      indexAxis:'y',
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ ticks:{font:{size:10}}, title:{ display:true, text:'Cantidad de inconsistencias', font:{size:10}, color:'#607d8b' } },
+        y:{ ticks:{font:{size:10}} }
+      }
+    });
+  } else {
+    document.getElementById('chart-pgm-barrios').style.display = 'none';
+    document.getElementById('chart-pgm-barrios').insertAdjacentHTML(
+      'afterend','<div class="empty" style="padding:40px 20px">✓ Sin inconsistencias internas en ningún barrio</div>'
+    );
+  }
+
+  // Tabla inconsistencias
+  const incons = pgmData.filter(r => r.inconsistInterna);
+  if (incons.length > 0) {
+    document.getElementById('panel-inconsist-pgm').style.display = 'block';
+    // Poblar select de barrios del panel de inconsistencias
+    const barrsInc = [...new Set(incons.map(r=>r.barrio))].sort();
+    const selInc = document.getElementById('fil-inconsist-barrio');
+    selInc.innerHTML = '<option value="">Todos los barrios</option>' +
+      barrsInc.map(b=>`<option value="${b}">${b}</option>`).join('');
+    inconsistFiltrado = [...incons];
+    pagInconsist = 1;
+    renderTablaInconsist();
+  }
+
+  // Poblar select barrios
+  const bSel = document.getElementById('fil-pgm-barrio');
+  const barr = [...new Set(pgmData.map(r=>r.barrio))].sort();
+  bSel.innerHTML = '<option value="">Todos</option>' + barr.map(b=>`<option value="${b}">${b}</option>`).join('');
+
+  pgmFiltrado = [...pgmData];
+  pagPGM = 1;
+  renderTablaPGM();
+}
+
+function filtrarPGM() {
+  const barrio   = document.getElementById('fil-pgm-barrio').value;
+  const modal    = document.getElementById('fil-pgm-modal').value;
+  const nroMed   = document.getElementById('fil-pgm-nromedidor').value;
+  const inconsist= document.getElementById('fil-pgm-inconsist').value;
+  const buscar   = document.getElementById('fil-pgm-buscar').value.toLowerCase().trim();
+
+  pgmFiltrado = pgmData.filter(r => {
+    if (barrio && r.barrio !== barrio) return false;
+    if (modal === 'con' && !r.esMedida) return false;
+    if (modal === 'sin' && r.esMedida)  return false;
+    if (nroMed === 'con' && !r.tieneNro) return false;
+    if (nroMed === 'sin' && r.tieneNro)  return false;
+    if (inconsist === 'si' && !r.inconsistInterna) return false;
+    if (inconsist === 'no' && r.inconsistInterna)  return false;
+    if (buscar && !(r.cuentaRaw+' '+r.titular).toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+  pagPGM = 1;
+  renderTablaPGM();
+}
+
+function limpiarFiltroPGM() {
+  ['fil-pgm-barrio','fil-pgm-modal','fil-pgm-nromedidor','fil-pgm-inconsist'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fil-pgm-buscar').value='';
+  filtrarPGM();
+}
+
+function renderTablaPGM() {
+  document.getElementById('info-pgm').textContent = `${fmt(pgmFiltrado.length)} cuentas`;
+  const pag = pgmFiltrado.slice((pagPGM-1)*POR_PAG, pagPGM*POR_PAG);
+  document.getElementById('tbody-pgm').innerHTML = pag.length
+    ? pag.map(r=>`<tr>
+        <td>${r.cuentaRaw}</td><td>${r.titular||'—'}</td><td>${r.barrio}</td>
+        <td><span class="badge ${r.esMedida?'verde':'gris'}">${r.esMedida?'CON MEDIDOR':'SIN MEDIDOR'}</span></td>
+        <td>${r.nroMed||'—'}</td><td>${r.zona||'—'}</td><td>${r.mznLote||'—'}</td>
+        <td style="font-size:0.72rem;color:#90a4ae">${r.nomenclatura||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">Sin resultados</td></tr>';
+  renderPag('pag-pgm', pgmFiltrado.length, pagPGM, 'setPagPGM', renderTablaPGM);
+}
+function setPagPGM(p){ pagPGM=p; renderTablaPGM(); }
+
+function filtrarInconsist() {
+  const barrio = document.getElementById('fil-inconsist-barrio').value;
+  const incons = pgmData.filter(r => r.inconsistInterna);
+  inconsistFiltrado = barrio ? incons.filter(r => r.barrio === barrio) : [...incons];
+  pagInconsist = 1;
+  renderTablaInconsist();
+}
+
+function limpiarFiltroInconsist() {
+  document.getElementById('fil-inconsist-barrio').value = '';
+  filtrarInconsist();
+}
+
+function renderTablaInconsist() {
+  document.getElementById('info-inconsist').textContent = `${fmt(inconsistFiltrado.length)} inconsistencias`;
+  const pag = inconsistFiltrado.slice((pagInconsist-1)*POR_PAG, pagInconsist*POR_PAG);
+  document.getElementById('tbody-inconsist-pgm').innerHTML = pag.length
+    ? pag.map(r=>`<tr>
+        <td>${r.cuentaRaw}</td><td>${r.titular}</td><td>${r.barrio}</td>
+        <td>${r.tipoPlan}</td><td>${r.nroMed||'—'}</td>
+        <td><span class="badge naranja">${r.inconsistInterna}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Sin resultados para este barrio.</td></tr>';
+  renderPag('pag-inconsist', inconsistFiltrado.length, pagInconsist, 'setPagInconsist', renderTablaInconsist);
+}
+function setPagInconsist(p){ pagInconsist=p; renderTablaInconsist(); }
+
+function exportarDetallePGM() {
+  const datos = pgmFiltrado.map(r=>({
+    'N° Cuenta':r.cuentaRaw,'Titular':r.titular,'Barrio':r.barrio,
+    'TIPO_PLAN':r.tipoPlan,'NRO_MEDIDOR':r.nroMed,'Zona':r.zona,
+    'MZN/Lote':r.mznLote,'Nomenclatura':r.nomenclatura,
+    'Inconsistencia interna':r.inconsistInterna||'',
+  }));
+  exportXLSX(datos,'pgm_filtrado.xlsx','PGM');
+}
+function exportarInconsistPGM() {
+  const datos = inconsistFiltrado.map(r=>({
+    'N° Cuenta':r.cuentaRaw,'Titular':r.titular,'Barrio':r.barrio,
+    'TIPO_PLAN':r.tipoPlan,'NRO_MEDIDOR':r.nroMed,
+    'Inconsistencia':r.inconsistInterna,
+  }));
+  const barrio = document.getElementById('fil-inconsist-barrio').value;
+  const nombre = barrio ? `inconsistencias_${barrio}.xlsx` : 'inconsistencias_pgm.xlsx';
+  exportXLSX(datos, nombre, 'Inconsistencias');
+}
+
+function reiniciarPGM() {
+  pgmData=[]; wbPGM=null;
+  document.getElementById('file-pgm').value='';
+  document.getElementById('zone-pgm').classList.remove('cargado');
+  document.getElementById('estado-pgm').style.display='none';
+  document.getElementById('btn-analizar-pgm').disabled=true;
+  mostrarPantalla('pantalla-carga-pgm');
+  actualizarStepper(1);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PASO 2 — LECTURAS
+// ═══════════════════════════════════════════════════════════════
+let wbLect = null;
+
+setupDrop('zone-lect','file-lect','estado-lect','btn-analizar-lect', (wb,fname)=>{ wbLect=wb; });
+
+function analizarLect() {
+  document.getElementById('spinner-lect').style.display='block';
+  document.getElementById('btn-analizar-lect').disabled=true;
+  setTimeout(()=>{
+    try {
+      lectData = parseLect(wbLect);
+      renderDashboardLect();
+      mostrarPantalla('pantalla-dashboard-lect');
+      actualizarStepper(2);
+    } catch(e){ alert('Error procesando lecturas: '+e.message); console.error(e); }
+    finally {
+      document.getElementById('spinner-lect').style.display='none';
+      document.getElementById('btn-analizar-lect').disabled=false;
+    }
+  },60);
+}
+
+function parseLect(wb) {
+  const HOJAS_EXCLUIR = ['CTAS ESTIMADAS X ALTO CONSUMO'];
+  const resultado = [];
+
+  for (const sheetName of wb.SheetNames) {
+    if (HOJAS_EXCLUIR.includes(sheetName)) continue;
+    const ws  = wb.Sheets[sheetName];
+    const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false, cellDates:true });
+    const filas = raw.filter(r => r.some(c => c !== ''));
+    if (filas.length < 1) continue;
+
+    // ── Detectar formato ──────────────────────────────────────
+    // Formato A (Abril): multi-hoja, encabezados en inglés (SRRef, Account, MeterSerial…)
+    // Formato B (Mayo):  hoja única, encabezados en español (Barrio, Cuenta, Num Medidor…)
+    const primeraFila = filas[0];
+    const headers = primeraFila.map(h => String(h||'').trim().toUpperCase());
+
+    // Detectar si la primera fila es encabezado (texto) o dato (col 1 numérica)
+    const col1EsTexto = isNaN(Number(String(primeraFila[1]||'').trim()));
+    const tieneHeaders = col1EsTexto;
+
+    let iBarrioCol, iAcc, iMed, iAddr, iTime, iIdx, iCom, inicioData;
+
+    if (tieneHeaders) {
+      // Buscar columnas por nombre (inglés o español)
+      iAcc  = headers.findIndex(h=>h.includes('ACCOUNT') || h.includes('CUENTA'));
+      iMed  = headers.findIndex(h=>h.includes('METERSERIAL') || h.includes('MEDIDOR') || h.includes('METER'));
+      iAddr = headers.findIndex(h=>h.includes('ADDRESS') || h.includes('PROPERTY') || h.includes('MANZANA') || h.includes('LOTE') || h.includes('DIRECC'));
+      iTime = headers.findIndex(h=>h.includes('TIME') || h.includes('FECHA'));
+      iIdx  = headers.findIndex(h=>h==='INDEX' || h.includes('INDICE') || h.includes('CONSUMO') || h.includes('LECTURA'));
+      iCom  = headers.findIndex(h=>h.includes('COMMENT') || h.includes('OBSERV') || h.includes('NOTA'));
+      iBarrioCol = headers.findIndex(h=>h.includes('SRREF') || h.includes('SR REF') || h==='BARRIO' || h.includes('BARRIO'));
+      inicioData = 1;
+      if (iAcc < 0) continue;
+    } else {
+      // Sin encabezados: posiciones fijas
+      iBarrioCol = 0; iAcc = 1; iMed = 2; iAddr = 3;
+      iTime = 4; iIdx = 6; iCom = filas[0].length > 7 ? 7 : -1;
+      inicioData = 0;
+    }
+
+    for (const row of filas.slice(inicioData)) {
+      const cuentaRaw = String(row[iAcc]||'').trim();
+      if (!cuentaRaw || isNaN(Number(cuentaRaw)) || Number(cuentaRaw) <= 0) continue;
+
+      // Fecha
+      const fechaVal = iTime >= 0 ? row[iTime] : '';
+      let fechaStr = '';
+      if (fechaVal instanceof Date) {
+        fechaStr = fechaVal.toLocaleDateString('es-AR');
+      } else if (fechaVal) {
+        fechaStr = String(fechaVal).split('T')[0];
+      }
+
+      // Barrio: de la columna, o del nombre de hoja si no hay columna
+      let barrio = '';
+      if (iBarrioCol >= 0 && row[iBarrioCol] && String(row[iBarrioCol]).trim()) {
+        barrio = String(row[iBarrioCol]).trim().toUpperCase();
+      } else {
+        barrio = sheetName.toUpperCase();
+      }
+
+      resultado.push({
+        cuentaRaw,
+        cuentaNorm:  norm(cuentaRaw),
+        medidor:     iMed  >= 0 ? String(row[iMed] ||'').trim() : '',
+        direccion:   iAddr >= 0 ? String(row[iAddr]||'').trim() : '',
+        barrio,
+        lectura:     iIdx  >= 0 ? String(row[iIdx] ||'').trim() : '',
+        fecha:       fechaStr,
+        observacion: normObs(iCom >= 0 ? String(row[iCom]||'') : ''),
+        hoja:        sheetName,
+      });
+    }
+  }
+
+  if (resultado.length === 0) throw new Error('No se encontraron datos de lecturas en el archivo.');
+  return resultado;
+}
+
+function renderDashboardLect() {
+  const total    = lectData.length;
+  const conObs   = lectData.filter(r=>r.observacion).length;
+  const sinObs   = total - conObs;
+  const hojas    = new Set(lectData.map(r=>r.hoja)).size;
+  const conFecha = lectData.filter(r=>r.fecha).length;
+
+  document.getElementById('lect-subtitulo').textContent =
+    `${fmt(total)} lecturas · ${hojas} zonas/barrios`;
+
+  document.getElementById('kpi-lect').innerHTML = `
+    <div class="kpi"><div class="label">Total lecturas</div><div class="value">${fmt(total)}</div><div class="sub">cuentas con medidor</div></div>
+    <div class="kpi azul"><div class="label">Zonas/barrios</div><div class="value">${fmt(hojas)}</div><div class="sub">hojas en el archivo</div></div>
+    <div class="kpi verde"><div class="label">Sin observación</div><div class="value">${fmt(sinObs)}</div><div class="sub">lecturas normales</div></div>
+    <div class="kpi naranja"><div class="label">Con observación</div><div class="value">${fmt(conObs)}</div><div class="sub">empañado, no encontrado, etc.</div></div>
+    <div class="kpi gris"><div class="label">Con fecha</div><div class="value">${fmt(conFecha)}</div><div class="sub">fecha de lectura registrada</div></div>
+  `;
+
+  // Por barrio
+  const porBarrio = {};
+  lectData.forEach(r => { porBarrio[r.hoja]=(porBarrio[r.hoja]||0)+1; });
+  const barr = Object.entries(porBarrio).sort((a,b)=>b[1]-a[1]);
+  mkChart('chart-lect-barrios','bar',{
+    labels: barr.map(x=>x[0]),
+    datasets:[{ label:'Lecturas', data:barr.map(x=>x[1]), backgroundColor:barr.map((_,i)=>col(i)), borderRadius:4 }]
+  },{ indexAxis:'y', plugins:{legend:{display:false}} });
+
+  // Observaciones
+  const porObs = {};
+  lectData.forEach(r=>{
+    const k = r.observacion || '(sin observación)';
+    porObs[k] = (porObs[k]||0)+1;
+  });
+  const obs = Object.entries(porObs).sort((a,b)=>b[1]-a[1]);
+  mkChart('chart-lect-obs','doughnut',{
+    labels: obs.map(x=>x[0]),
+    datasets:[{ data:obs.map(x=>x[1]), backgroundColor:obs.map((_,i)=>col(i+3)), borderWidth:2, borderColor:'#fff' }]
+  });
+
+  // Select barrios lecturas
+  const hojasSel = document.getElementById('fil-lect-barrio');
+  const hojasUnicas = [...new Set(lectData.map(r=>r.hoja))].sort();
+  hojasSel.innerHTML = '<option value="">Todos</option>' + hojasUnicas.map(h=>`<option value="${h}">${h}</option>`).join('');
+
+  // Select observaciones
+  const obsSel = document.getElementById('fil-lect-obs');
+  const obsUnicas = [...new Set(lectData.map(r=>r.observacion).filter(Boolean))].sort();
+  obsSel.innerHTML = '<option value="">Todas</option>' + obsUnicas.map(o=>`<option value="${o}">${o}</option>`).join('');
+
+  lectFiltrado = [...lectData];
+  pagLect = 1;
+  renderTablaLect();
+}
+
+function filtrarLect() {
+  const barrio = document.getElementById('fil-lect-barrio').value;
+  const obs    = document.getElementById('fil-lect-obs').value;
+  const buscar = document.getElementById('fil-lect-buscar').value.toLowerCase().trim();
+  lectFiltrado = lectData.filter(r => {
+    if (barrio && r.hoja !== barrio) return false;
+    if (obs && r.observacion !== obs) return false;
+    if (buscar && !(r.cuentaRaw+' '+r.medidor).toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+  pagLect=1; renderTablaLect();
+}
+function limpiarFiltroLect() {
+  ['fil-lect-barrio','fil-lect-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fil-lect-buscar').value='';
+  filtrarLect();
+}
+function renderTablaLect() {
+  document.getElementById('info-lect').textContent = `${fmt(lectFiltrado.length)} registros`;
+  const pag = lectFiltrado.slice((pagLect-1)*POR_PAG, pagLect*POR_PAG);
+  document.getElementById('tbody-lect').innerHTML = pag.length
+    ? pag.map(r=>`<tr>
+        <td>${r.cuentaRaw}</td><td>${r.medidor||'—'}</td><td>${r.hoja}</td>
+        <td>${r.direccion||'—'}</td><td class="r">${r.lectura||'—'}</td>
+        <td>${r.fecha||'—'}</td>
+        <td>${r.observacion?`<span class="badge naranja">${r.observacion}</span>`:'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" class="empty">Sin resultados</td></tr>';
+  renderPag('pag-lect', lectFiltrado.length, pagLect, 'setPagLect', renderTablaLect);
+}
+function setPagLect(p){ pagLect=p; renderTablaLect(); }
+
+function exportarLect() {
+  const datos = lectFiltrado.map(r=>({
+    'N° Cuenta':r.cuentaRaw,'N° Medidor':r.medidor,'Barrio/Zona':r.hoja,
+    'Dirección':r.direccion,'Lectura':r.lectura,'Fecha':r.fecha,'Observación':r.observacion,
+  }));
+  exportXLSX(datos,'lecturas_filtrado.xlsx','Lecturas');
+}
+
+function reiniciarLect() {
+  lectData=[]; wbLect=null;
+  document.getElementById('file-lect').value='';
+  document.getElementById('zone-lect').classList.remove('cargado');
+  document.getElementById('estado-lect').style.display='none';
+  document.getElementById('btn-analizar-lect').disabled=true;
+  mostrarPantalla('pantalla-carga-lect');
+  actualizarStepper(2);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PASO 3 — CRUCE
+// ═══════════════════════════════════════════════════════════════
+function ejecutarCruce() {
+  if (!pgmData.length)   { alert('Primero analizá el PGM.'); return; }
+  if (!lectData.length)  { alert('Primero analizá las lecturas.'); return; }
+
+  // Índice lecturas por cuenta normalizada
+  const idxLect = new Map();
+  for (const r of lectData) {
+    if (!idxLect.has(r.cuentaNorm)) idxLect.set(r.cuentaNorm, r);
+  }
+
+  const cuentasPGM = new Set();
+  cruceData = [];
+
+  for (const r of pgmData) {
+    cuentasPGM.add(r.cuentaNorm);
+    const lect = idxLect.get(r.cuentaNorm);
+    const enLect = !!lect;
+
+    let estado, obs;
+    if (r.esMedida && enLect) {
+      estado = 'verde';
+      obs = 'Cuenta medida en PGM y presente en sistema de lecturas.';
+    } else if (r.esMedida && !enLect) {
+      estado = 'amarillo';
+      obs = 'Figura como CON MEDIDOR en PGM pero no aparece en el archivo de lecturas. Verificar si el medidor fue instalado o si la cuenta fue omitida en la ronda.';
+    } else if (!r.esMedida && enLect) {
+      estado = 'rojo';
+      obs = 'INCONSISTENCIA: figura como SIN MEDIDOR en PGM pero tiene registro de lectura. Revisar la modalidad en el padrón.';
+    } else {
+      estado = 'gris';
+      obs = 'Sin medidor en PGM y sin registro de lectura.';
+    }
+
+    // Agregar info de inconsistencia interna del PGM si existe
+    if (r.inconsistInterna) obs += ' | ALERTA PGM: ' + r.inconsistInterna + '.';
+
+    cruceData.push({
+      cuentaRaw:   r.cuentaRaw,
+      cuentaNorm:  r.cuentaNorm,
+      titular:     r.titular,
+      barrio:      r.barrio,
+      zona:        r.zona,
+      tipoPlan:    r.tipoPlan,
+      nroMedPGM:   r.nroMed,
+      esMedida:    r.esMedida,
+      enLect,
+      medidorLect: lect?.medidor || '',
+      lectura:     lect?.lectura || '',
+      fecha:       lect?.fecha   || '',
+      observLect:  lect?.observacion || '',
+      barrioLect:  lect?.hoja || '',
+      estado, obs,
+      esHuerfana: false,
+    });
+  }
+
+  // Cuentas en lecturas no encontradas en PGM
+  for (const [norm_, lect] of idxLect) {
+    if (!cuentasPGM.has(norm_)) {
+      cruceData.push({
+        cuentaRaw:   lect.cuentaRaw,
+        cuentaNorm:  lect.cuentaNorm,
+        titular:     '',
+        barrio:      lect.barrio,
+        zona:        '',
+        tipoPlan:    '',
+        nroMedPGM:   '',
+        esMedida:    null,
+        enLect:      true,
+        medidorLect: lect.medidor,
+        lectura:     lect.lectura,
+        fecha:       lect.fecha,
+        observLect:  lect.observacion,
+        barrioLect:  lect.hoja,
+        estado:      'azul',
+        obs:         'Cuenta presente en archivo de lecturas pero no encontrada en padrón PGM.',
+        esHuerfana:  true,
+      });
+    }
+  }
+
+  renderDashboardCruce();
+  mostrarPantalla('pantalla-cruce');
+  actualizarStepper(3);
+}
+
+function renderDashboardCruce() {
+  const total     = cruceData.filter(r=>!r.esHuerfana).length;
+  const ok        = cruceData.filter(r=>r.estado==='verde').length;
+  const sinLect   = cruceData.filter(r=>r.estado==='amarillo').length;
+  const inconsist = cruceData.filter(r=>r.estado==='rojo').length;
+  const sinMed    = cruceData.filter(r=>r.estado==='gris').length;
+  const huerfanas = cruceData.filter(r=>r.estado==='azul').length;
+
+  document.getElementById('cruce-subtitulo').textContent =
+    `${fmt(total)} cuentas PGM cruzadas con ${fmt(lectData.length)} lecturas`;
+
+  document.getElementById('kpi-cruce').innerHTML = `
+    <div class="kpi"><div class="label">Cuentas analizadas</div><div class="value">${fmt(total)}</div><div class="sub">del padrón PGM</div></div>
+    <div class="kpi verde"><div class="label">Medidor ok</div><div class="value">${fmt(ok)}</div><div class="sub">medida + con lectura</div></div>
+    <div class="kpi amarillo"><div class="label">Medida sin lectura</div><div class="value">${fmt(sinLect)}</div><div class="sub">medida en PGM, sin lectura</div></div>
+    <div class="kpi rojo"><div class="label">Inconsistencias</div><div class="value">${fmt(inconsist)}</div><div class="sub">no medida pero con lectura</div></div>
+    <div class="kpi gris"><div class="label">Sin medidor</div><div class="value">${fmt(sinMed)}</div><div class="sub">no medida, sin lectura</div></div>
+    <div class="kpi azul"><div class="label">En lecturas, no en PGM</div><div class="value">${fmt(huerfanas)}</div><div class="sub">sin cuenta en padrón</div></div>
+  `;
+
+  // Donut
+  mkChart('chart-cruce-donut','doughnut',{
+    labels:['✅ Medidor ok','⚠ Sin lectura','🔴 Inconsistencia','⬜ Sin medidor','🔵 No en PGM'],
+    datasets:[{ data:[ok,sinLect,inconsist,sinMed,huerfanas],
+      backgroundColor:['#2e7d32','#e65100','#c62828','#90a4ae','#0277bd'],
+      borderWidth:2, borderColor:'#fff' }]
+  });
+
+  // Tabla barrios cruce
+  const porBarrio = {};
+  cruceData.forEach(r=>{
+    if(!porBarrio[r.barrio]) porBarrio[r.barrio]={verde:0,amarillo:0,rojo:0,gris:0,azul:0};
+    porBarrio[r.barrio][r.estado]++;
+  });
+  const barrios = Object.keys(porBarrio).sort((a,b)=>
+    (porBarrio[b].rojo+porBarrio[b].amarillo)-(porBarrio[a].rojo+porBarrio[a].amarillo));
+
+  document.getElementById('tbody-barrio-cruce').innerHTML = barrios.map(b=>`
+    <tr class="clickable" onclick="selBarrioCruce('${b.replace(/'/g,"\\'")}', this)">
+      <td><strong>${b}</strong></td>
+      <td style="color:var(--verde);text-align:right">${porBarrio[b].verde||0}</td>
+      <td style="color:var(--amarillo);text-align:right">${porBarrio[b].amarillo||0}</td>
+      <td style="color:var(--rojo);text-align:right">${porBarrio[b].rojo||0}</td>
+      <td style="color:var(--gris);text-align:right">${porBarrio[b].gris||0}</td>
+      <td style="color:var(--azul);text-align:right">${porBarrio[b].azul||0}</td>
+    </tr>`).join('');
+
+  // Chart barras
+  mkChart('chart-cruce-barras','bar',{
+    labels: barrios,
+    datasets:[
+      {label:'✅ Ok',           data:barrios.map(b=>porBarrio[b].verde||0),    backgroundColor:'#2e7d32',borderRadius:3},
+      {label:'⚠ Sin lectura',  data:barrios.map(b=>porBarrio[b].amarillo||0), backgroundColor:'#e65100',borderRadius:3},
+      {label:'🔴 Inconsistencia',data:barrios.map(b=>porBarrio[b].rojo||0),   backgroundColor:'#c62828',borderRadius:3},
+      {label:'⬜ Sin medidor',  data:barrios.map(b=>porBarrio[b].gris||0),    backgroundColor:'#90a4ae',borderRadius:3},
+      {label:'🔵 No en PGM',   data:barrios.map(b=>porBarrio[b].azul||0),    backgroundColor:'#0277bd',borderRadius:3},
+    ]
+  },{scales:{x:{stacked:true},y:{stacked:true}}});
+
+  // Select barrios cruce
+  const bSel = document.getElementById('fil-cruce-barrio');
+  bSel.innerHTML = '<option value="">Todos</option>' + barrios.map(b=>`<option value="${b}">${b}</option>`).join('');
+
+  cruceFiltrado = [...cruceData];
+  pagCruce = 1;
+  renderTablaCruce();
+}
+
+function selBarrioCruce(barrio, tr) {
+  const ya = barrioSelCruce === barrio;
+  barrioSelCruce = ya ? null : barrio;
+  document.querySelectorAll('#tbody-barrio-cruce tr').forEach(r=>r.classList.remove('seleccionado'));
+  if (!ya) tr.classList.add('seleccionado');
+  document.getElementById('fil-cruce-barrio').value = barrioSelCruce||'';
+  filtrarCruce();
+}
+
+function filtrarCruce() {
+  const barrio = document.getElementById('fil-cruce-barrio').value;
+  const estado = document.getElementById('fil-cruce-estado').value;
+  const modal  = document.getElementById('fil-cruce-modal').value;
+  const buscar = document.getElementById('fil-cruce-buscar').value.toLowerCase().trim();
+
+  barrioSelCruce = barrio || null;
+  document.querySelectorAll('#tbody-barrio-cruce tr').forEach(tr=>{
+    const td = tr.querySelector('td');
+    if(td) tr.classList.toggle('seleccionado', td.textContent.trim()===barrioSelCruce);
+  });
+
+  cruceFiltrado = cruceData.filter(r=>{
+    if (barrio && r.barrio !== barrio) return false;
+    if (estado && r.estado !== estado) return false;
+    if (modal === 'con'      && !r.esMedida)      return false;
+    if (modal === 'sin'      && r.esMedida!==false) return false;
+    if (modal === 'huerfana' && !r.esHuerfana)    return false;
+    if (buscar && !(r.cuentaRaw+' '+r.titular).toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+  pagCruce=1; renderTablaCruce();
+}
+
+function limpiarFiltroCruce() {
+  ['fil-cruce-barrio','fil-cruce-estado','fil-cruce-modal'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fil-cruce-buscar').value='';
+  barrioSelCruce=null;
+  document.querySelectorAll('#tbody-barrio-cruce tr').forEach(r=>r.classList.remove('seleccionado'));
+  filtrarCruce();
+}
+
+const BADGE_LABEL = {verde:'✅ Ok',amarillo:'⚠ Sin lectura',rojo:'🔴 Inconsistencia',gris:'⬜ Sin medidor',azul:'🔵 No en PGM'};
+
+function renderTablaCruce() {
+  const total = cruceFiltrado.length;
+  document.getElementById('info-cruce').textContent = `${fmt(total)} registros`;
+  const pag = cruceFiltrado.slice((pagCruce-1)*POR_PAG, pagCruce*POR_PAG);
+  document.getElementById('tbody-cruce').innerHTML = pag.length
+    ? pag.map(r=>`<tr>
+        <td>${r.cuentaRaw}</td><td>${r.titular||'—'}</td><td>${r.barrio}</td>
+        <td><span class="badge ${r.esMedida===true?'verde':r.esMedida===false?'gris':'azul'}">${r.tipoPlan||'—'}</span></td>
+        <td>${r.nroMedPGM||'—'}</td>
+        <td style="text-align:center">${r.enLect?'✓':'✗'}</td>
+        <td>${r.medidorLect||'—'}</td>
+        <td class="r">${r.lectura||'—'}</td>
+        <td>${r.fecha||'—'}</td>
+        <td><span class="badge ${r.estado}">${BADGE_LABEL[r.estado]||r.estado}</span></td>
+        <td class="wrap">${r.obs}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="11" class="empty">Sin resultados para los filtros aplicados.</td></tr>';
+  renderPag('pag-cruce', total, pagCruce, 'setPagCruce', renderTablaCruce);
+}
+function setPagCruce(p){ pagCruce=p; renderTablaCruce(); }
+
+function exportarCruce() {
+  const datos = cruceFiltrado.map(r=>({
+    'N° Cuenta':       r.cuentaRaw,
+    'Titular':         r.titular,
+    'Barrio PGM':      r.barrio,
+    'TIPO_PLAN':       r.tipoPlan,
+    'NRO_MEDIDOR PGM': r.nroMedPGM,
+    'En lecturas':     r.enLect?'Sí':'No',
+    'Medidor lectura': r.medidorLect,
+    'Lectura':         r.lectura,
+    'Fecha lectura':   r.fecha,
+    'Observación':     r.observLect,
+    'Estado final':    ESTADOS_LABEL[r.estado]||r.estado,
+    'Observaciones':   r.obs,
+  }));
+  const barrio = document.getElementById('fil-cruce-barrio').value;
+  const estado = document.getElementById('fil-cruce-estado').value;
+  const nombre = ['cruce',barrio,estado,new Date().toISOString().slice(0,10)]
+    .filter(Boolean).join('_').replace(/\s+/g,'_')+'.xlsx';
+  exportXLSX(datos, nombre, 'Cruce');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGACIÓN ENTRE PASOS
+// ═══════════════════════════════════════════════════════════════
+function irPaso1Dashboard() {
+  mostrarPantalla('pantalla-dashboard-pgm');
+  actualizarStepper(1);
+}
+function irPaso2() {
+  if (!pgmData.length) { alert('Primero analizá el PGM.'); return; }
+  if (lectData.length > 0) {
+    mostrarPantalla('pantalla-dashboard-lect');
+    actualizarStepper(2);
+  } else {
+    mostrarPantalla('pantalla-carga-lect');
+    actualizarStepper(2);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ═══════════════════════════════════════════════════════════════
+function exportXLSX(datos, nombre, hojaNombre) {
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, hojaNombre||'Datos');
+  if (datos[0]) {
+    const anchos = Object.keys(datos[0]).map(k=>({wch:Math.max(k.length,14)}));
+    ws['!cols'] = anchos;
+  }
+  XLSX.writeFile(wb, nombre);
+}
+</script>
+</body>
+</html>
