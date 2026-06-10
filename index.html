@@ -22,12 +22,84 @@
     /* ── HEADER ── */
     header {
       background: linear-gradient(135deg, #1565c0, #0d47a1);
-      color: white; padding: 14px 28px;
+      color: white; padding: 12px 28px;
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-logo { height: 52px; width: auto; filter: brightness(0) invert(1); flex-shrink: 0; }
     header h1 { font-size: 1.2rem; font-weight: 700; }
     header p  { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .info-archivos { font-size: 0.72rem; opacity: 0.8; text-align: right; line-height: 1.6; display: none; }
+    .btn-admin {
+      padding: 7px 14px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px; color: white; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-admin:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── PANTALLA INICIO ── */
+    #pantalla-inicio {
+      display: flex; align-items: center; justify-content: center; min-height: 60vh;
+    }
+    .inicio-box {
+      background: white; border-radius: 16px; padding: 48px 40px; text-align: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08); max-width: 460px; width: 100%;
+    }
+    .inicio-box img { height: 72px; margin-bottom: 20px; }
+    .inicio-box h2 { font-size: 1.1rem; color: #1565c0; margin-bottom: 8px; }
+    .inicio-box p  { font-size: 0.85rem; color: #78909c; margin-bottom: 24px; }
+    .inicio-estado { font-size: 0.82rem; color: #90a4ae; margin-top: 12px; }
+    .inicio-ok { color: #2e7d32; font-weight: 600; font-size: 0.9rem; }
+    .inicio-error { color: #c62828; font-size: 0.85rem; margin-top: 12px; }
+
+    /* ── MODAL ADMIN ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .modal-overlay.activo { display: flex; }
+    .modal {
+      background: white; border-radius: 16px; padding: 32px; width: 100%; max-width: 520px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2); position: relative;
+    }
+    .modal h2 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: #1565c0; }
+    .modal > p { font-size: 0.83rem; color: #78909c; margin-bottom: 24px; }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #90a4ae;
+    }
+    .campo-pass { display: flex; gap: 8px; margin-bottom: 20px; }
+    .campo-pass input {
+      flex: 1; padding: 9px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 0.9rem;
+    }
+    .campo-pass button {
+      padding: 9px 18px; background: #1565c0; color: white; border: none;
+      border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+    #admin-contenido { display: none; }
+    .admin-upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 500px) { .admin-upload-grid { grid-template-columns: 1fr; } }
+    .admin-zona {
+      border: 2px dashed #90a4ae; border-radius: 10px; padding: 20px;
+      text-align: center; cursor: pointer; position: relative; transition: all 0.2s;
+    }
+    .admin-zona:hover { border-color: #1565c0; background: #e8f0fe; }
+    .admin-zona.ok { border-color: #2e7d32; background: #f1f8e9; }
+    .admin-zona input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .admin-zona .az-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .admin-zona h4 { font-size: 0.85rem; font-weight: 700; color: #37474f; margin-bottom: 4px; }
+    .admin-zona p  { font-size: 0.75rem; color: #90a4ae; }
+    .admin-zona .az-estado { font-size: 0.78rem; color: #2e7d32; font-weight: 600; margin-top: 8px; display: none; }
+    .btn-subir-todo {
+      display: block; width: 100%; margin-top: 18px; padding: 13px;
+      background: linear-gradient(90deg,#1565c0,#1976d2); color: white;
+      border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-subir-todo:disabled { opacity: 0.4; cursor: not-allowed; }
+    .admin-prog { font-size: 0.82rem; color: #607d8b; margin-top: 10px; text-align: center; min-height: 20px; }
+    #msg-error-pass { font-size: 0.82rem; color: #c62828; margin-top: 6px; min-height: 18px; }
 
     /* ── STEPPER ── */
     .stepper {
@@ -215,14 +287,76 @@
 <body>
 
 <header>
-  <div>
-    <h1>Cruce de Cuentas de Agua</h1>
-    <p>Análisis del padrón PGM · Análisis de lecturas · Cruce de datos</p>
+  <div class="header-left">
+    <img src="LOGO%20COLOR.png" alt="Logo Municipalidad" class="header-logo" />
+    <div>
+      <h1>Cruce de Cuentas de Agua</h1>
+      <p>Análisis del padrón PGM · Análisis de lecturas · Cruce de datos</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="info-archivos" id="info-archivos"></div>
+    <button class="btn-admin" onclick="abrirAdmin()">⚙ Actualizar archivos</button>
   </div>
 </header>
 
+<!-- ── MODAL ADMIN ── -->
+<div class="modal-overlay" id="modal-admin">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarAdmin()">✕</button>
+    <h2>Panel de administración</h2>
+    <p>Ingresá la contraseña para subir archivos nuevos a la nube.</p>
+    <div class="campo-pass">
+      <input type="password" id="input-pass" placeholder="Contraseña..." onkeydown="if(event.key==='Enter')verificarPass()" />
+      <button onclick="verificarPass()">Ingresar</button>
+    </div>
+    <div id="msg-error-pass"></div>
+    <div id="admin-contenido">
+      <div class="admin-upload-grid">
+        <div class="admin-zona" id="zona-admin-pgm" onclick="document.getElementById('file-admin-pgm').click()">
+          <input type="file" id="file-admin-pgm" accept=".xlsx,.xls,.csv" onchange="seleccionarAdminFile('pgm',this)" />
+          <div class="az-icon">📋</div>
+          <h4>Padrón PGM</h4>
+          <p>Reemplaza el archivo actual en la nube</p>
+          <div class="az-estado" id="az-estado-pgm"></div>
+        </div>
+        <div class="admin-zona" id="zona-admin-lect" onclick="document.getElementById('file-admin-lect').click()">
+          <input type="file" id="file-admin-lect" accept=".xlsx,.xls,.csv" onchange="seleccionarAdminFile('lect',this)" />
+          <div class="az-icon">📟</div>
+          <h4>Archivo de Lecturas</h4>
+          <p>Reemplaza el archivo actual en la nube</p>
+          <div class="az-estado" id="az-estado-lect"></div>
+        </div>
+      </div>
+      <button class="btn-subir-todo" id="btn-subir-todo" disabled onclick="subirTodo()">
+        ⬆ Subir a la nube y actualizar
+      </button>
+      <div class="admin-prog" id="admin-prog"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PANTALLA INICIO ── -->
+<div id="pantalla-inicio-wrap">
+  <main style="padding:24px 28px;max-width:1500px;margin:0 auto">
+    <div id="pantalla-inicio">
+      <div class="inicio-box">
+        <img src="LOGO%20COLOR.png" alt="Logo" style="height:64px;margin-bottom:16px" />
+        <h2>Cruce de Cuentas de Agua</h2>
+        <p>Verificando archivos disponibles en la nube...</p>
+        <div class="sp" style="margin:0 auto"></div>
+        <div class="inicio-estado" id="inicio-estado">Conectando con Supabase...</div>
+        <div class="inicio-error" id="inicio-error" style="display:none"></div>
+        <button class="btn-primario" id="btn-inicio-manual" style="display:none;margin-top:16px" onclick="iniciarManual()">
+          Cargar archivos manualmente →
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
 <!-- STEPPER -->
-<div class="stepper">
+<div class="stepper" id="stepper-wrap" style="display:none">
   <div class="step activo" id="step1">
     <div class="num">1</div>
     Padrón PGM
@@ -239,7 +373,7 @@
   </div>
 </div>
 
-<main>
+<main id="main-wrap" style="display:none">
 
   <!-- ══════════════════════════════════════════════════════ -->
   <!-- PASO 1 — CARGA PGM                                     -->
@@ -602,6 +736,205 @@
 </main>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════════════════
+const SB_URL    = 'https://jeprjnywwsvyxwvmgoqp.supabase.co';
+const SB_KEY    = 'sb_publishable_FESapZtqYV2OtdO7de5HEg_U7E9dsEn';
+const SB_BUCKET = 'archivos';
+const ADMIN_PASS = 'Calera2026';
+
+let adminPGMFile  = null;
+let adminLectFile = null;
+
+function sbHeaders(extra={}) {
+  return { 'Authorization': `Bearer ${SB_KEY}`, 'apikey': SB_KEY, ...extra };
+}
+
+async function sbDescargar(nombre) {
+  const url = `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${nombre}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No encontrado: ${nombre}`);
+  return await res.arrayBuffer();
+}
+
+async function sbSubir(nombre, buffer) {
+  const url = `${SB_URL}/storage/v1/object/${SB_BUCKET}/${nombre}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...sbHeaders({ 'Content-Type': 'application/octet-stream', 'x-upsert': 'true' }) },
+    body: buffer,
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Error al subir ${nombre}: ${txt}`);
+  }
+}
+
+async function sbMetadata() {
+  try {
+    const url = `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/metadata.json`;
+    const res = await fetch(url + '?t=' + Date.now());
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function sbGuardarMetadata(meta) {
+  const buf = new TextEncoder().encode(JSON.stringify(meta));
+  await sbSubir('metadata.json', buf);
+}
+
+// ── ARRANQUE: verificar archivos en Supabase ──────────────────
+async function verificarSupabase() {
+  const estado = document.getElementById('inicio-estado');
+  const errDiv = document.getElementById('inicio-error');
+  const btnMan = document.getElementById('btn-inicio-manual');
+
+  try {
+    estado.textContent = 'Verificando archivos en la nube...';
+    const meta = await sbMetadata();
+
+    if (!meta || !meta.pgm || !meta.lecturas) {
+      throw new Error('no-archivos');
+    }
+
+    // Descargar ambos archivos
+    estado.textContent = 'Descargando padrón PGM...';
+    const pgmBuf  = await sbDescargar('pgm.xlsx');
+
+    estado.textContent = 'Descargando archivo de lecturas...';
+    const lectBuf = await sbDescargar('lecturas.xlsx');
+
+    estado.innerHTML = '<span class="inicio-ok">✓ Archivos encontrados. Procesando...</span>';
+
+    // Parsear
+    const wbPGM_  = XLSX.read(pgmBuf,  { type:'array', cellDates:true });
+    const wbLect_ = XLSX.read(lectBuf, { type:'array', cellDates:true });
+
+    pgmData   = parsePGM(wbPGM_);
+    lectData  = parseLect(wbLect_);
+
+    // Mostrar info en header
+    const infoEl = document.getElementById('info-archivos');
+    infoEl.style.display = 'block';
+    infoEl.innerHTML =
+      `PGM: ${meta.pgm.nombre} · ${meta.pgm.fecha}<br>` +
+      `Lecturas: ${meta.lecturas.nombre} · ${meta.lecturas.fecha}`;
+
+    // Ir directo al cruce
+    ocultarInicio();
+    ejecutarCruce();
+    actualizarStepper(3);
+
+  } catch(e) {
+    if (e.message === 'no-archivos') {
+      estado.textContent = 'No hay archivos cargados aún.';
+      errDiv.style.display = 'block';
+      errDiv.textContent = 'Usá el botón "Actualizar archivos" para subir el PGM y las lecturas por primera vez.';
+    } else {
+      estado.textContent = 'No se pudo conectar a la nube.';
+      errDiv.style.display = 'block';
+      errDiv.textContent = 'Podés cargar los archivos manualmente.';
+    }
+    btnMan.style.display = 'block';
+  }
+}
+
+function ocultarInicio() {
+  document.getElementById('pantalla-inicio-wrap').style.display = 'none';
+  document.getElementById('stepper-wrap').style.display = 'flex';
+  document.getElementById('main-wrap').style.display = 'block';
+}
+
+function iniciarManual() {
+  ocultarInicio();
+  mostrarPantalla('pantalla-carga-pgm');
+  actualizarStepper(1);
+}
+
+// ── ADMIN MODAL ───────────────────────────────────────────────
+function abrirAdmin() {
+  document.getElementById('modal-admin').classList.add('activo');
+  document.getElementById('input-pass').value = '';
+  document.getElementById('msg-error-pass').textContent = '';
+  document.getElementById('admin-contenido').style.display = 'none';
+  document.getElementById('admin-prog').textContent = '';
+  setTimeout(()=>document.getElementById('input-pass').focus(), 100);
+}
+
+function cerrarAdmin() {
+  document.getElementById('modal-admin').classList.remove('activo');
+  adminPGMFile = null; adminLectFile = null;
+}
+
+function verificarPass() {
+  const pass = document.getElementById('input-pass').value;
+  if (pass === ADMIN_PASS) {
+    document.getElementById('admin-contenido').style.display = 'block';
+    document.getElementById('msg-error-pass').textContent = '';
+    document.getElementById('input-pass').closest('.campo-pass').style.display = 'none';
+  } else {
+    document.getElementById('msg-error-pass').textContent = '❌ Contraseña incorrecta.';
+  }
+}
+
+function seleccionarAdminFile(tipo, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (tipo === 'pgm') {
+    adminPGMFile = file;
+    document.getElementById('az-estado-pgm').textContent = '✓ ' + file.name;
+    document.getElementById('az-estado-pgm').style.display = 'block';
+    document.getElementById('zona-admin-pgm').classList.add('ok');
+  } else {
+    adminLectFile = file;
+    document.getElementById('az-estado-lect').textContent = '✓ ' + file.name;
+    document.getElementById('az-estado-lect').style.display = 'block';
+    document.getElementById('zona-admin-lect').classList.add('ok');
+  }
+  document.getElementById('btn-subir-todo').disabled = !(adminPGMFile || adminLectFile);
+}
+
+async function subirTodo() {
+  const prog = document.getElementById('admin-prog');
+  const btn  = document.getElementById('btn-subir-todo');
+  btn.disabled = true;
+
+  try {
+    // Obtener metadata actual
+    const metaActual = await sbMetadata() || {};
+    const ahora = new Date().toLocaleDateString('es-AR');
+
+    if (adminPGMFile) {
+      prog.textContent = '⬆ Subiendo padrón PGM...';
+      const buf = await adminPGMFile.arrayBuffer();
+      await sbSubir('pgm.xlsx', buf);
+      metaActual.pgm = { nombre: adminPGMFile.name, fecha: ahora };
+    }
+
+    if (adminLectFile) {
+      prog.textContent = '⬆ Subiendo archivo de lecturas...';
+      const buf = await adminLectFile.arrayBuffer();
+      await sbSubir('lecturas.xlsx', buf);
+      metaActual.lecturas = { nombre: adminLectFile.name, fecha: ahora };
+    }
+
+    prog.textContent = '⬆ Guardando metadata...';
+    await sbGuardarMetadata(metaActual);
+
+    prog.innerHTML = '✅ <strong>Archivos subidos correctamente.</strong> Recargando la app...';
+    setTimeout(() => window.location.reload(), 1800);
+
+  } catch(e) {
+    prog.innerHTML = `❌ Error: ${e.message}`;
+    btn.disabled = false;
+  }
+}
+
+// ── INICIO ────────────────────────────────────────────────────
+window.addEventListener('load', verificarSupabase);
+
 // ═══════════════════════════════════════════════════════════════
 // ESTADO GLOBAL
 // ═══════════════════════════════════════════════════════════════
